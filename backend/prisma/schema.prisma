@@ -1,0 +1,220 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+//////////////////////
+// ENUMS
+//////////////////////
+
+enum RequestType {
+  ASESORIA
+  PROYECTO
+}
+
+enum RequestStatus {
+  ABIERTA
+  EN_REVISION
+  EN_PROCESO
+  COMPLETADA
+  CANCELADA
+}
+
+enum ApplicationStatus {
+  PENDIENTE
+  ACEPTADA
+  RECHAZADA
+}
+
+enum NotificationType {
+  APPLICATION_RECEIVED
+  APPLICATION_ACCEPTED
+  APPLICATION_REJECTED
+  REQUEST_COMPLETED
+  NEW_MATCH
+  RANK_UP
+}
+
+//////////////////////
+// USER & PROFILE
+//////////////////////
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  password      String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  profile       Profile?
+
+  requests      Request[]
+  applications  Application[]
+  ratingsGiven  Rating[] @relation("ratingsGiven")
+  ratingsReceived Rating[] @relation("ratingsReceived")
+
+  notifications Notification[]
+  deviceTokens  DeviceToken[]
+
+  // ranking
+  points        Int      @default(0)
+  medal         String   @default("HIERRO")
+
+  tags          UserTag[]
+}
+
+model Profile {
+  id          String  @id @default(uuid())
+  userId      String  @unique
+  fullName    String
+  career      String
+  cycle       Int
+  description String?
+  photoUrl    String?
+  whatsapp    String?
+  portfolio   String?
+
+  user        User @relation(fields: [userId], references: [id])
+}
+
+//////////////////////
+// TAGS
+//////////////////////
+
+model Tag {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  createdAt DateTime @default(now())
+
+  users     UserTag[]
+  requests  RequestTag[]
+}
+
+model UserTag {
+  userId String
+  tagId  String
+
+  user User @relation(fields: [userId], references: [id])
+  tag  Tag  @relation(fields: [tagId], references: [id])
+
+  @@id([userId, tagId])
+}
+
+model RequestTag {
+  requestId String
+  tagId     String
+
+  request Request @relation(fields: [requestId], references: [id])
+  tag     Tag     @relation(fields: [tagId], references: [id])
+
+  @@id([requestId, tagId])
+}
+
+//////////////////////
+// REQUESTS
+//////////////////////
+
+model Request {
+  id            String        @id @default(uuid())
+  userId        String
+  type          RequestType
+  title         String
+  description   String
+  difficulty    Int
+  status        RequestStatus @default(ABIERTA)
+
+  createdAt     DateTime @default(now())
+  deadline      DateTime?
+
+  budget        Float?
+  participants  Int      @default(1)
+
+  user          User @relation(fields: [userId], references: [id])
+  tags          RequestTag[]
+  applications  Application[]
+
+  selectedApplicationId String?
+}
+
+//////////////////////
+// APPLICATIONS
+//////////////////////
+
+model Application {
+  id          String            @id @default(uuid())
+  userId      String
+  requestId   String
+  message     String
+  status      ApplicationStatus @default(PENDIENTE)
+
+  createdAt   DateTime @default(now())
+
+  user        User    @relation(fields: [userId], references: [id])
+  request     Request @relation(fields: [requestId], references: [id])
+
+  rating      Rating?
+
+  @@unique([userId, requestId])
+}
+
+//////////////////////
+// RATINGS
+//////////////////////
+
+model Rating {
+  id            String   @id @default(uuid())
+
+  applicationId String   @unique
+
+  fromUserId    String
+  toUserId      String
+
+  score         Int
+  comment       String?
+
+  createdAt     DateTime @default(now())
+
+  application   Application @relation(fields: [applicationId], references: [id])
+
+  fromUser User @relation("ratingsGiven", fields: [fromUserId], references: [id])
+  toUser   User @relation("ratingsReceived", fields: [toUserId], references: [id])
+}
+
+//////////////////////
+// NOTIFICATIONS
+//////////////////////
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String
+  type      NotificationType
+  data      Json?
+  read      Boolean          @default(false)
+
+  createdAt DateTime @default(now())
+
+  user      User @relation(fields: [userId], references: [id])
+}
+
+//////////////////////
+// PUSH NOTIFICATIONS
+//////////////////////
+
+model DeviceToken {
+  id        String   @id @default(uuid())
+  userId    String
+  token     String
+  platform  String
+
+  createdAt DateTime @default(now())
+
+  user      User @relation(fields: [userId], references: [id])
+}
