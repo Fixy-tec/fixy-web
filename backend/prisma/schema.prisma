@@ -9,6 +9,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  url = env("DATABASE_URL")
 }
 
 //////////////////////
@@ -43,46 +44,69 @@ enum NotificationType {
   RANK_UP
 }
 
+enum Medal {
+  HIERRO
+  BRONCE
+  PLATA
+  ORO
+  DIAMANTE
+  MAESTRO
+  CHALLENGER
+}
+
 //////////////////////
-// USER & PROFILE
+// USER
 //////////////////////
 
 model User {
-  id            String   @id @default(uuid())
-  email         String   @unique
-  password      String
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id String @id @default(dbgenerated("gen_random_uuid()"))
+  email       String   @unique
+  password    String
+  isActive    Boolean  @default(true)
 
-  profile       Profile?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  requests      Request[]
-  applications  Application[]
-  ratingsGiven  Rating[] @relation("ratingsGiven")
-  ratingsReceived Rating[] @relation("ratingsReceived")
+  profile     Profile?
+  userTags UserTag[]
+
+  requests    Request[]
+  applications Application[]
+
+  ratingsGiven    Rating[] @relation("given")
+  ratingsReceived Rating[] @relation("received")
+
+  pointLogs PointLog[]
 
   notifications Notification[]
-  deviceTokens  DeviceToken[]
+  deviceTokens DeviceToken[]
 
-  // ranking
-  points        Int      @default(0)
-  medal         String   @default("HIERRO")
-
-  tags          UserTag[]
+  points      Int     @default(0)
+  medal       Medal   @default(HIERRO)
 }
 
-model Profile {
-  id          String  @id @default(uuid())
-  userId      String  @unique
-  fullName    String
-  career      String
-  cycle       Int
-  description String?
-  photoUrl    String?
-  whatsapp    String?
-  portfolio   String?
+//////////////////////
+// PROFILE
+//////////////////////
 
-  user        User @relation(fields: [userId], references: [id])
+model Profile {
+  id            String  @id @default(uuid())
+  userId        String  @unique
+
+  fullName      String
+  institution   String
+  career        String
+  cycle         Int
+
+  bio           String?
+  avatarUrl     String?
+  whatsapp      String?
+  portfolioUrl  String?
+  linkedinUrl   String?
+
+  avgRating     Float   @default(0)
+
+  user User @relation(fields: [userId], references: [id])
 }
 
 //////////////////////
@@ -90,8 +114,10 @@ model Profile {
 //////////////////////
 
 model Tag {
-  id        String   @id @default(uuid())
-  name      String   @unique
+  id        String @id @default(uuid())
+  name      String @unique
+  isCustom  Boolean @default(false)
+
   createdAt DateTime @default(now())
 
   users     UserTag[]
@@ -101,6 +127,8 @@ model Tag {
 model UserTag {
   userId String
   tagId  String
+
+  assignedAt DateTime @default(now())
 
   user User @relation(fields: [userId], references: [id])
   tag  Tag  @relation(fields: [tagId], references: [id])
@@ -119,102 +147,149 @@ model RequestTag {
 }
 
 //////////////////////
-// REQUESTS
+// REQUEST
 //////////////////////
 
 model Request {
-  id            String        @id @default(uuid())
-  userId        String
-  type          RequestType
-  title         String
-  description   String
-  difficulty    Int
-  status        RequestStatus @default(ABIERTA)
+  id          String @id @default(uuid())
+  creatorId   String
 
-  createdAt     DateTime @default(now())
-  deadline      DateTime?
+  type        RequestType
+  title       String
+  description String
 
-  budget        Float?
-  participants  Int      @default(1)
+  difficulty  Int
+  basePoints  Int
 
-  user          User @relation(fields: [userId], references: [id])
-  tags          RequestTag[]
-  applications  Application[]
+  economicBenefit Float?
 
-  selectedApplicationId String?
+  participantsNeeded Int
+
+  status      RequestStatus @default(ABIERTA)
+  deadline    DateTime?
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  selectedApplicationId String? @unique
+
+  creator User @relation(fields: [creatorId], references: [id])
+  selectedApplication   Application? @relation("SelectedApplication", fields: [selectedApplicationId], references: [id])
+
+  applications Application[]
+  tags         RequestTag[]
+
+  pointLogs    PointLog[]
+
+  @@index([creatorId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 //////////////////////
-// APPLICATIONS
+// APPLICATION
 //////////////////////
 
 model Application {
-  id          String            @id @default(uuid())
-  userId      String
+  id          String @id @default(uuid())
   requestId   String
+  applicantId String
+
   message     String
-  status      ApplicationStatus @default(PENDIENTE)
+  status ApplicationStatus @default(PENDIENTE)
 
   createdAt   DateTime @default(now())
 
-  user        User    @relation(fields: [userId], references: [id])
-  request     Request @relation(fields: [requestId], references: [id])
+  request Request @relation(fields: [requestId], references: [id])
+  applicant User @relation(fields: [applicantId], references: [id])
+  selectedIn Request? @relation("SelectedApplication")
 
-  rating      Rating?
+  rating Rating?
 
-  @@unique([userId, requestId])
+  @@unique([requestId, applicantId])
+  @@index([requestId])
+  @@index([applicantId])
 }
 
 //////////////////////
-// RATINGS
+// RATING
 //////////////////////
 
 model Rating {
-  id            String   @id @default(uuid())
+  id            String @id @default(uuid())
 
-  applicationId String   @unique
+  applicationId String @unique
 
-  fromUserId    String
-  toUserId      String
+  raterId       String
+  ratedId       String
 
-  score         Int
+  stars         Int
   comment       String?
 
   createdAt     DateTime @default(now())
 
-  application   Application @relation(fields: [applicationId], references: [id])
+  application Application @relation(fields: [applicationId], references: [id])
 
-  fromUser User @relation("ratingsGiven", fields: [fromUserId], references: [id])
-  toUser   User @relation("ratingsReceived", fields: [toUserId], references: [id])
+  rater User @relation("given", fields: [raterId], references: [id])
+  rated User @relation("received", fields: [ratedId], references: [id])
+
+  pointLogs PointLog[]
 }
 
 //////////////////////
-// NOTIFICATIONS
+// POINT LOG
+//////////////////////
+
+model PointLog {
+  id        String @id @default(uuid())
+
+  userId    String
+  ratingId  String?
+  requestId String?
+
+  delta     Int
+  reason    String
+
+  medalBefore Medal?
+  medalAfter  Medal?
+
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id])
+  request   Request? @relation(fields: [requestId], references: [id])
+  rating Rating? @relation(fields: [ratingId], references: [id])
+}
+
+//////////////////////
+// NOTIFICATION
 //////////////////////
 
 model Notification {
-  id        String           @id @default(uuid())
+  id        String @id @default(uuid())
   userId    String
+
   type      NotificationType
   data      Json?
-  read      Boolean          @default(false)
+
+  read      Boolean @default(false)
 
   createdAt DateTime @default(now())
 
-  user      User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
 
 //////////////////////
-// PUSH NOTIFICATIONS
+// PUSH
 //////////////////////
 
 model DeviceToken {
-  id        String   @id @default(uuid())
-  userId    String
-  token     String
-  platform  String
+  id       String @id @default(uuid())
+  userId   String
+
+  token    String
+  platform String
 
   createdAt DateTime @default(now())
 
-  user      User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id])
 }
