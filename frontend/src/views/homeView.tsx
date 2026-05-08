@@ -256,7 +256,7 @@ export default function HomeView() {
       <section className="bg-gray-50 py-20 px-4">
         <div className="max-w-5xl mx-auto flex flex-col md:flex-row items-center justify-center gap-12 md:gap-20">
           {/* Imagen */}
-          <div className="flex-shrink-0">
+          <div className="shrink-0">
             <Image
               src="/fixo.png"
               alt="Fixo mascota"
