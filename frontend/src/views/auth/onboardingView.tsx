@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Check, ChevronRight, ChevronLeft } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 const TAGS = [
   "JavaScript",
@@ -40,6 +41,7 @@ const AVATARS = [
 const TOTAL_STEPS = 4;
 
 const OnboardingView = () => {
+  const router = useRouter();
   const [step, setStep] = useState(1);
   const [data, setData] = useState({
     tags: [] as string[],
@@ -60,7 +62,7 @@ const OnboardingView = () => {
 
   const handleFinish = () => {
     console.log(data);
-    // redirigir al home
+    router.push("/home");
   };
 
   const canNext = () => {

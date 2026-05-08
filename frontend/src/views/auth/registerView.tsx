@@ -4,12 +4,14 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Eye, EyeOff, UserPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 const TECSUP_REGEX = /^[a-zA-Z0-9._%+-]+@tecsup\.edu\.pe$/;
 
 const RegisterView = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const router = useRouter();
   const [form, setForm] = useState({
     email: "",
     password: "",
@@ -36,7 +38,7 @@ const RegisterView = () => {
     }
     setErrors({});
     console.log(form);
-    // redirigir a /onboarding tras registro exitoso
+    router.push("/auth/on-boarding");
   };
 
   return (

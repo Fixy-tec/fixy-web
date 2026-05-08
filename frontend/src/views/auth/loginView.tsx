@@ -4,14 +4,16 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { Eye, EyeOff, LogIn } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 const LoginView = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [form, setForm] = useState({ username: "", password: "" });
-
+  const router = useRouter();
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     console.log(form);
+    router.push("/home");
   };
 
   return (
