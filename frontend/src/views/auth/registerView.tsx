@@ -3,21 +3,48 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Eye, EyeOff, LogIn } from "lucide-react";
+import { Eye, EyeOff, UserPlus } from "lucide-react";
+import { useRouter } from "next/navigation";
+
+const TECSUP_REGEX = /^[a-zA-Z0-9._%+-]+@tecsup\.edu\.pe$/;
 
 const RegisterView = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [form, setForm] = useState({ username: "", password: "" });
+  const [showConfirm, setShowConfirm] = useState(false);
+  const router = useRouter();
+  const [form, setForm] = useState({
+    email: "",
+    password: "",
+    confirmPassword: "",
+  });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!TECSUP_REGEX.test(form.email))
+      newErrors.email = "Debe ser un correo @tecsup.edu.pe";
+    if (form.password.length < 8) newErrors.password = "Mínimo 8 caracteres";
+    if (form.password !== form.confirmPassword)
+      newErrors.confirmPassword = "Las contraseñas no coinciden";
+    return newErrors;
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    const newErrors = validate();
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
     console.log(form);
+    router.push("/auth/on-boarding");
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#fefefe] px-4">
       <div className="flex flex-col lg:flex-row items-center justify-center gap-12 w-full max-w-4xl">
-        {/* Imagen — mismo porte que el form */}
+        {/* Imagen */}
         <div className="hidden lg:flex items-center justify-center flex-1">
           <Image
             src="/fixo_wall.png"
@@ -30,7 +57,6 @@ const RegisterView = () => {
 
         {/* Formulario */}
         <div className="w-full max-w-sm bg-white rounded-2xl border border-gray-100 shadow-sm px-8 py-10 flex-1">
-          {/* Logo + título */}
           <div className="mb-8 text-center">
             <Link href="/">
               <Image
@@ -43,50 +69,54 @@ const RegisterView = () => {
               />
             </Link>
             <h1 className="text-2xl font-semibold text-gray-700 mb-1">
-              Bienvenido de vuelta
+              Crea tu cuenta
             </h1>
             <p className="text-sm text-gray-500">
-              Ingresa tus datos para continuar
+              Solo necesitas tu correo institucional
             </p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Usuario
+                Correo institucional
               </label>
               <input
-                type="text"
-                placeholder="Tu nombre de usuario"
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3] transition-colors"
+                type="email"
+                placeholder="tunombre@tecsup.edu.pe"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                className={`w-full px-4 py-2.5 rounded-lg border text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors ${
+                  errors.email
+                    ? "border-red-300 focus:ring-red-200 focus:border-red-400"
+                    : "border-gray-200 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3]"
+                }`}
                 required
               />
+              {errors.email && (
+                <p className="text-xs text-red-500 mt-1">{errors.email}</p>
+              )}
             </div>
 
+            {/* Contraseña */}
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-medium text-gray-700">
-                  Contraseña
-                </label>
-                <Link
-                  href="/forgot-password"
-                  className="text-xs text-[#1a4ca3] hover:underline"
-                >
-                  ¿Olvidaste tu contraseña?
-                </Link>
-              </div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Contraseña
+              </label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
-                  placeholder="Tu contraseña"
+                  placeholder="Mínimo 8 caracteres"
                   value={form.password}
                   onChange={(e) =>
                     setForm({ ...form, password: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 pr-10 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3] transition-colors"
+                  className={`w-full px-4 py-2.5 pr-10 rounded-lg border text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors ${
+                    errors.password
+                      ? "border-red-300 focus:ring-red-200 focus:border-red-400"
+                      : "border-gray-200 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3]"
+                  }`}
                   required
                 />
                 <button
@@ -101,14 +131,56 @@ const RegisterView = () => {
                   )}
                 </button>
               </div>
+              {errors.password && (
+                <p className="text-xs text-red-500 mt-1">{errors.password}</p>
+              )}
+            </div>
+
+            {/* Confirmar contraseña */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Confirmar contraseña
+              </label>
+              <div className="relative">
+                <input
+                  type={showConfirm ? "text" : "password"}
+                  placeholder="Repite tu contraseña"
+                  value={form.confirmPassword}
+                  onChange={(e) =>
+                    setForm({ ...form, confirmPassword: e.target.value })
+                  }
+                  className={`w-full px-4 py-2.5 pr-10 rounded-lg border text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors ${
+                    errors.confirmPassword
+                      ? "border-red-300 focus:ring-red-200 focus:border-red-400"
+                      : "border-gray-200 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3]"
+                  }`}
+                  required
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(!showConfirm)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  {showConfirm ? (
+                    <EyeOff size={16} strokeWidth={1.8} />
+                  ) : (
+                    <Eye size={16} strokeWidth={1.8} />
+                  )}
+                </button>
+              </div>
+              {errors.confirmPassword && (
+                <p className="text-xs text-red-500 mt-1">
+                  {errors.confirmPassword}
+                </p>
+              )}
             </div>
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 bg-[#057f78] hover:bg-[#05605c] text-white font-semibold py-2.5 rounded-lg transition-colors text-sm mt-2"
+              className="w-full flex items-center justify-center gap-2 bg-[#1a4ca3] hover:bg-[#143d87] text-white font-semibold py-2.5 rounded-lg transition-colors text-sm mt-2"
             >
-              <LogIn size={16} strokeWidth={2} />
-              Iniciar sesión
+              <UserPlus size={16} strokeWidth={2} />
+              Crear cuenta
             </button>
           </form>
 
@@ -119,12 +191,12 @@ const RegisterView = () => {
           </div>
 
           <p className="text-center text-sm text-gray-500">
-            ¿No tienes cuenta?{" "}
+            ¿Ya tienes cuenta?{" "}
             <Link
-              href="/register"
-              className="text-[#1a4ca3] font-semibold hover:underline"
+              href="/auth/login"
+              className="text-[#057f78] font-semibold hover:underline"
             >
-              Crear cuenta
+              Iniciar sesión
             </Link>
           </p>
         </div>

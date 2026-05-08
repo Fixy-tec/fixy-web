@@ -80,7 +80,7 @@ export default function NavBarComponent() {
 
                 {/* Crear cuenta */}
                 <Link
-                  href="/register"
+                  href="/auth/register"
                   className="text-white font-semibold px-4 py-2 rounded-lg transition-colors text-sm"
                   style={{ background: "#1a4ca3" }}
                   onMouseEnter={(e) =>
@@ -163,14 +163,14 @@ export default function NavBarComponent() {
               <>
                 <div className="pt-2 border-t border-gray-100 space-y-2">
                   <Link
-                    href="/login"
+                    href="/auth/login"
                     className="block text-center text-gray-700 font-semibold  transition-colors hover:text-[#057f78]"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Iniciar sesión
                   </Link>
                   <Link
-                    href="/register"
+                    href="/auth/register"
                     className="block text-center text-white font-semibold px-4 py-2 rounded-lg transition-colors"
                     style={{ background: "#1a4ca3" }}
                     onClick={() => setIsMenuOpen(false)}
