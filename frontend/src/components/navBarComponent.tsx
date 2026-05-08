@@ -6,11 +6,11 @@ import Link from "next/link";
 import { LogOut, Power, User } from "lucide-react";
 
 // Cambia esto a true para probar el estado logueado
-const IS_LOGGED_IN = false;
+const IS_LOGGED_IN = true;
 
 const navLinks = [
-  { href: "/", label: "Inicio" },
-  { href: "/solicitudes", label: "Mis Solicitudes" },
+  { href: "/home", label: "Inicio" },
+  { href: "/applications", label: "Mis Solicitudes" },
   { href: "/buscar", label: "Buscar" },
   { href: "/ranking", label: "Ranking" },
 ];
