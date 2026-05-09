@@ -198,7 +198,7 @@ export default function CreateSolicitudView() {
                       <p className="text-xs text-gray-500 leading-relaxed">
                         {tipo === "Asesoría"
                           ? "Busca ayuda con un curso, revisión de trabajo, repaso antes de examen o retroalimentación de un proyecto."
-                          : "Busca socios para desarrollar un proyecto académico, personal o de emprendimiento. Puede incluir beneficio económico."}
+                          : "Busca socios para desarrollar un proyecto académico, personal o de emprendimiento."}
                       </p>
                     </div>
                     {form.tipo === tipo && (

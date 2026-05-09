@@ -46,7 +46,7 @@ export default function SolicitudCard({ solicitud: s, onClick }: Props) {
     >
       {/* Barra lateral de color */}
       <div
-        className="w-1 flex-shrink-0 rounded-l-2xl"
+        className="w-1 shrink-0 rounded-l-2xl"
         style={{ background: accentColor }}
       />
 
