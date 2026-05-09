@@ -11,7 +11,7 @@ const IS_LOGGED_IN = true;
 const navLinks = [
   { href: "/home", label: "Inicio" },
   { href: "/applications", label: "Mis Solicitudes" },
-  { href: "/buscar", label: "Buscar" },
+  { href: "/find", label: "Buscar" },
   { href: "/ranking", label: "Ranking" },
 ];
 
