@@ -6,12 +6,12 @@ import Link from "next/link";
 import { LogOut, Power, User } from "lucide-react";
 
 // Cambia esto a true para probar el estado logueado
-const IS_LOGGED_IN = false;
+const IS_LOGGED_IN = true;
 
 const navLinks = [
-  { href: "/", label: "Inicio" },
-  { href: "/solicitudes", label: "Mis Solicitudes" },
-  { href: "/buscar", label: "Buscar" },
+  { href: "/home", label: "Inicio" },
+  { href: "/applications", label: "Mis Solicitudes" },
+  { href: "/find", label: "Buscar" },
   { href: "/ranking", label: "Ranking" },
 ];
 
@@ -23,7 +23,7 @@ export default function NavBarComponent() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo — siempre a la izquierda */}
-          <Link href="/" className="flex items-center flex-shrink-0">
+          <Link href="/" className="flex items-center shrink-0">
             <Image
               src="/gaaa.png"
               alt="Fixy Logo"
