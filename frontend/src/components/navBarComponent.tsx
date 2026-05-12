@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { LogOut, Power, User } from "lucide-react";
 
 // Cambia esto a true para probar el estado logueado
@@ -15,8 +16,11 @@ const navLinks = [
   { href: "/ranking", label: "Ranking" },
 ];
 
+// cambiar el de perfil depsues cuando ya no sea hardcode para que agarre en perfil al usuiro logueado su id
+
 export default function NavBarComponent() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const pathname = usePathname();
 
   return (
     <nav className="bg-white shadow-sm border-b border-gray-200 sticky top-0 z-50">
@@ -42,6 +46,10 @@ export default function NavBarComponent() {
                   key={href}
                   href={href}
                   className="text-gray-600 hover:text-[#1a4ca3] font-medium px-4 py-2 rounded-lg transition-all duration-150 text-sm"
+                  style={{
+                    color: pathname === href ? "#1a4ca3" : "#4b5563",
+                    background: pathname === href ? "#eff4ff" : "transparent",
+                  }}
                 >
                   {label}
                 </Link>
@@ -55,8 +63,13 @@ export default function NavBarComponent() {
               <>
                 {/* Perfil */}
                 <Link
-                  href="/perfil"
+                  href="/users/1"
                   className="flex items-center gap-2 text-gray-600 hover:text-[#1a4ca3] font-medium px-3 py-2 rounded-lg transition-colors text-sm"
+                  style={{
+                    color: pathname.startsWith("/users")
+                      ? "#1a4ca3"
+                      : "#4b5563",
+                  }}
                 >
                   <User size={17} strokeWidth={1.8} />
                   Perfil
@@ -140,15 +153,24 @@ export default function NavBarComponent() {
                     href={href}
                     className="block py-2 px-3 text-gray-700 hover:text-[#1a4ca3] hover:bg-blue-50 font-medium rounded-lg transition-colors"
                     onClick={() => setIsMenuOpen(false)}
+                    style={{
+                      color: pathname === href ? "#1a4ca3" : "#4b5563",
+                      background: pathname === href ? "#eff4ff" : "transparent",
+                    }}
                   >
                     {label}
                   </Link>
                 ))}
                 <div className="pt-2 border-t border-gray-100 space-y-1">
                   <Link
-                    href="/perfil"
+                    href="/users/1"
                     className="flex items-center gap-2 py-2 px-3 text-gray-700 hover:text-[#1a4ca3] hover:bg-blue-50 font-medium rounded-lg transition-colors"
                     onClick={() => setIsMenuOpen(false)}
+                    style={{
+                      color: pathname.startsWith("/users")
+                        ? "#1a4ca3"
+                        : "#4b5563",
+                    }}
                   >
                     <User size={16} strokeWidth={1.8} />
                     Perfil
