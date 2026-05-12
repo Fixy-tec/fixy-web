@@ -1,0 +1,47 @@
+import { Request, Response } from "express";
+import * as userService from "../services/user.service";
+import { AuthRequest } from "../../../middlewares/auth.middleware";
+
+export async function getCurrentUser(req: Request, res: Response) {
+  const authReq = req as AuthRequest;
+  const userId = authReq.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const user = await userService.getCurrentUser(userId);
+  return res.json({ user });
+}
+
+export async function updateCurrentUser(req: Request, res: Response) {
+  const authReq = req as AuthRequest;
+  const userId = authReq.user?.userId;
+  if (!userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+
+  const { avatarUrl, whatsapp, bio, portfolioUrl, linkedinUrl, githubUrl, tags } = req.body;
+  const user = await userService.updateCurrentUser(userId, {
+    avatarUrl,
+    whatsapp,
+    bio,
+    portfolioUrl,
+    linkedinUrl,
+    githubUrl,
+    tags,
+  });
+  return res.json({ user });
+}
+
+export async function getUsers(_req: Request, res: Response) {
+  const users = await userService.getUsers();
+  return res.json({ users });
+}
+
+export async function getUserById(req: Request, res: Response) {
+  const user = await userService.getUserById(req.params.id);
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  return res.json({ user });
+}
