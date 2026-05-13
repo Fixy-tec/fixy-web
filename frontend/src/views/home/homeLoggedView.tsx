@@ -17,12 +17,8 @@ const HomeLoggedView = () => {
             <div className="absolute top-0 right-0 w-72 h-72 bg-white/10 rounded-full blur-3xl" />
 
             <div className="relative z-10">
-              <div className="flex items-center gap-2 text-white/80 text-sm">
-                <Sparkles size={16} />
-                Recomendaciones inteligentes activas
-              </div>
-
-              <h1 className="text-4xl md:text-5xl font-bold mt-5 leading-tight">
+              <h1 className="text-3xl md:text-4xl flex items-center gap-2 font-bold mt-5 leading-tight">
+                <Sparkles size={30} />
                 Bienvenido, Gabriel
               </h1>
 
@@ -61,44 +57,51 @@ const HomeLoggedView = () => {
           </div>
 
           {/* PERFIL */}
-          <div className="lg:col-span-5 bg-white border border-gray-100 rounded-4xl p-6 shadow-sm flex flex-col justify-between min-h-80">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-sm text-gray-400">Tu progreso</p>
+          <div className="lg:col-span-5 relative overflow-hidden rounded-4xl min-h-80 shadow-sm">
+            <Image
+              src="/fixoNews.png"
+              alt="Fixy News"
+              fill
+              priority
+              className="object-cover"
+            />
 
-                <h2 className="text-4xl font-bold text-gray-800 mt-3">Plata</h2>
+            <div className="absolute inset-0 bg-black/15" />
 
-                <p className="text-gray-500 mt-2">920 puntos acumulados</p>
+            <div className="absolute inset-0 bg-linear-to-br from-[#1a4ca3]/30 via-transparent to-[#057f78]/20" />
+
+            {/* CONTENT */}
+            <div className="relative z-10 h-full flex flex-col justify-between p-6">
+              {/* TOP */}
+              <div className="flex items-start justify-between gap-4">
+                {/* Glass badge */}
+                <div className="backdrop-blur-sm bg-white/10 border border-white/10 rounded-2xl px-4 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.15)]">
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
+                    Noticias
+                  </p>
+                </div>
+
+                {/* Small indicator */}
+                <div className="backdrop-blur-sm bg-white/10 border border-white/10 rounded-2xl px-3 py-2">
+                  <span className="text-xs font-medium text-white">
+                    Próximamente
+                  </span>
+                </div>
               </div>
 
-              <div className="w-14 h-14 rounded-2xl bg-linear-to-br from-[#1a4ca3] to-[#009c70] flex items-center justify-center text-white text-2xl">
-                🏆
+              {/* BOTTOM CHAT-LIKE BAR */}
+              <div className="absolute bottom-0 left-0 w-full">
+                <div className="backdrop-blur-sm bg-black/20 border-t border-white/10 px-6 py-5">
+                  <h2 className="text-lg font-bold text-white leading-tight">
+                    El servidor de Minecraft de Fixy está en camino
+                  </h2>
+                  <p className="text-sm text-white/80 leading-relaxed max-w-2xl">
+                    Estamos preparando un espacio para reuniones, eventos,
+                    actividades y colaboración entre estudiantes dentro de
+                    Minecraft.
+                  </p>
+                </div>
               </div>
-            </div>
-
-            <div className="mt-8">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm text-gray-500">Progreso a Oro</span>
-
-                <span className="text-sm font-semibold text-[#1a4ca3]">
-                  65%
-                </span>
-              </div>
-
-              <div className="w-full h-3 rounded-full bg-gray-100 overflow-hidden">
-                <div className="h-full w-[65%] rounded-full bg-gradient-to-r from-[#1a4ca3] to-[#009c70]" />
-              </div>
-
-              <p className="text-xs text-gray-400 mt-3">
-                880 pts restantes para subir de medalla
-              </p>
-            </div>
-
-            {/* mini stats */}
-            <div className="grid grid-cols-3 gap-3 mt-8">
-              <MiniStat title="Ranking" value="#10" />
-              <MiniStat title="Rating" value="4.9⭐" />
-              <MiniStat title="Completadas" value="12" />
             </div>
           </div>
 

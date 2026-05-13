@@ -166,7 +166,7 @@ export default function UserProfileView({ user, isOwner }: Props) {
             {/* Avatar */}
             <div className="relative shrink-0">
               <div
-                className="w-24 h-24 rounded-2xl overflow-hidden border-2"
+                className="w-44 h-44 rounded-2xl overflow-hidden border-2"
                 style={{
                   borderColor: medal.border,
                   boxShadow: `0 0 16px ${medal.glow}`,
@@ -181,12 +181,12 @@ export default function UserProfileView({ user, isOwner }: Props) {
                 />
               </div>
               {/* Medalla sobre avatar */}
-              <div className="absolute -bottom-3 -right-3 w-9 h-9">
+              <div className="absolute -bottom-4 -right-4 w-16 h-16">
                 <Image
                   src={medal.image}
                   alt={medal.name}
-                  width={36}
-                  height={36}
+                  width={64}
+                  height={64}
                   className="object-contain"
                 />
               </div>
