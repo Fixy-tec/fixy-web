@@ -125,8 +125,7 @@ const MEDALS: MedalInfo[] = [
   },
 ];
 
-// ── Usuario actual (hardcoded) ───────────────────────────────────────────────
-const MY_POINTS = 2000;
+const MY_POINTS = 50000;
 const MY_MEDAL = MEDALS.find(
   (m) => MY_POINTS >= m.min && (m.max === null || MY_POINTS <= m.max),
 )!;
