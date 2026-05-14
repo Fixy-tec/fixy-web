@@ -65,7 +65,8 @@ enum Medal {
 //////////////////////
 
 model User {
-  id String @id @default(dbgenerated("gen_random_uuid()"))
+  id          String @id @default(dbgenerated("gen_random_uuid()"))
+  name        String
   email       String   @unique
   password    String
   isActive    Boolean  @default(true)
@@ -75,22 +76,39 @@ model User {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // One-to-One: User -> Profile
   profile     Profile?
-  userTags UserTag[]
+  
+  // Many-to-Many: User -> Tag (user interests/skills)
+  userTags    UserTag[]
 
-  requests    Request[]
-  applications Application[]
+  // One-to-Many: User creates many Requests (max 5 active)
+  requestsCreated  Request[] @relation("CreatedBy")
+  
+  // One-to-Many: User sends many Applications
+  applications Application[] @relation("AppliedBy")
 
-  ratingsGiven    Rating[] @relation("given")
-  ratingsReceived Rating[] @relation("received")
+  // One-to-Many: User gives ratings (as rater)
+  ratingsGiven    Rating[] @relation("GivenBy")
+  
+  // One-to-Many: User receives ratings (as rated)
+  ratingsReceived Rating[] @relation("ReceivedBy")
 
-  pointLogs PointLog[]
+  // One-to-Many: Point logs for this user
+  pointLogs   PointLog[]
 
+  // One-to-Many: Notifications for this user
   notifications Notification[]
+  
+  // One-to-Many: Device tokens for push notifications
   deviceTokens DeviceToken[]
 
+  // User stats
   points      Int     @default(0)
   medal       Medal   @default(HIERRO)
+
+  @@index([email])
+  @@index([createdAt])
 }
 
 //////////////////////
@@ -101,14 +119,13 @@ model Profile {
   id            String @id @default(dbgenerated("gen_random_uuid()"))
   userId        String  @unique
 
-  fullName      String?
   institution   String?
   career        String?
   cycle         Int?
 
   bio           String?
   avatarUrl     String?
-  whatsapp      String?
+  whatsapp      String
   portfolioUrl  String?
   linkedinUrl   String?
   githubUrl     String?
@@ -161,13 +178,15 @@ model RequestTag {
 
 model Request {
   id          String @id @default(dbgenerated("gen_random_uuid()"))
+  
+  // Foreign key to User (creator)
   creatorId   String
 
   type        RequestType
   title       String
   description String
 
-  difficulty  Int
+  difficulty  Int @db.SmallInt // 1-5
   basePoints  Int
   economicBenefit Float?
 
@@ -179,21 +198,30 @@ model Request {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Selected application when request is accepted
   selectedApplicationId String? @unique
 
-  creator User @relation(fields: [creatorId], references: [id])
-  selectedApplication   Application? @relation("SelectedApplication", fields: [selectedApplicationId], references: [id])
+  // Many-to-One: Request -> User (creator, max 5 active per user)
+  creator User @relation("CreatedBy", fields: [creatorId], references: [id], onDelete: Cascade)
+  
+  // One-to-Many: Request has many Applications (applicants)
+  applications Application[] @relation("AppliedTo")
+  
+  // One: Request selected one Application
+  selectedApplication Application? @relation("SelectedApplication", fields: [selectedApplicationId], references: [id], onDelete: SetNull)
 
-  applications Application[]
+  // Many-to-Many: Request has many Tags (project skills/areas)
   tags         RequestTag[]
 
+  // One-to-Many: Point logs for this request
   pointLogs    PointLog[]
 
-  isExpired Boolean @default(false)
+  isExpired   Boolean @default(false)
 
   @@index([creatorId])
   @@index([status])
   @@index([createdAt])
+  @@index([difficulty])
 }
 
 //////////////////////
@@ -202,23 +230,33 @@ model Request {
 
 model Application {
   id          String @id @default(dbgenerated("gen_random_uuid()"))
+  
+  // Foreign keys
   requestId   String
   applicantId String
 
   message     String
-  status ApplicationStatus @default(PENDIENTE)
+  status      ApplicationStatus @default(PENDIENTE)
 
   createdAt   DateTime @default(now())
 
-  request Request @relation(fields: [requestId], references: [id])
-  applicant User @relation(fields: [applicantId], references: [id])
-  selectedIn Request? @relation("SelectedApplication")
+  // Many-to-One: Application -> Request (many applications per request)
+  request     Request @relation("AppliedTo", fields: [requestId], references: [id], onDelete: Cascade)
+  
+  // Many-to-One: Application -> User (applicant, many applications per user)
+  applicant   User @relation("AppliedBy", fields: [applicantId], references: [id], onDelete: Cascade)
+  
+  // One: Application can be the selectedApplication of a Request
+  selectedIn  Request? @relation("SelectedApplication")
 
-  rating Rating?
+  // One-to-One: Application generates one Rating (optional, only if completed)
+  rating      Rating?
 
   @@unique([requestId, applicantId])
   @@index([requestId])
   @@index([applicantId])
+  @@index([status])
+  @@index([createdAt])
 }
 
 //////////////////////
@@ -227,24 +265,34 @@ model Application {
 
 model Rating {
   id            String @id @default(dbgenerated("gen_random_uuid()"))
+  
+  // Foreign keys
   applicationId String @unique
-
   raterId       String
   ratedId       String
 
-  stars         Int
+  stars         Int @db.SmallInt // 1-5
   comment       String?
 
   createdAt     DateTime @default(now())
 
-  application Application @relation(fields: [applicationId], references: [id])
+  // One-to-One: Rating -> Application
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
-  rater User @relation("given", fields: [raterId], references: [id])
-  rated User @relation("received", fields: [ratedId], references: [id])
+  // Many-to-One: Rating -> User (rater, the one giving the rating)
+  rater         User @relation("GivenBy", fields: [raterId], references: [id], onDelete: Cascade)
+  
+  // Many-to-One: Rating -> User (rated, the one receiving the rating)
+  rated         User @relation("ReceivedBy", fields: [ratedId], references: [id], onDelete: Cascade)
 
-  pointLogs PointLog[]
+  // One-to-Many: Rating generates PointLog entries
+  pointLogs     PointLog[]
 
   isAutoGenerated Boolean @default(false)
+
+  @@index([raterId])
+  @@index([ratedId])
+  @@index([createdAt])
 }
 
 //////////////////////

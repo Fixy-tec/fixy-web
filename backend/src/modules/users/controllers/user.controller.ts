@@ -21,6 +21,9 @@ export async function updateCurrentUser(req: Request, res: Response) {
   }
 
   const { avatarUrl, whatsapp, bio, portfolioUrl, linkedinUrl, githubUrl, tags } = req.body;
+  if (!whatsapp) {
+    return res.status(400).json({ message: "WhatsApp is required" });
+  }
   const user = await userService.updateCurrentUser(userId, {
     avatarUrl,
     whatsapp,

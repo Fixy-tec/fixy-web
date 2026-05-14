@@ -4,6 +4,9 @@ import dotenv from "dotenv";
 import applicationRoutes from "./routes/application.routes";
 import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
+import requestsRoutes from "./routes/requests.routes";
+import ratingsRoutes from "./modules/ratings/routes/ratings.routes";
+import recommendationsRoutes from "./modules/recommendations/routes/recommendations.routes";
 
 dotenv.config();
 
@@ -18,6 +21,9 @@ app.get("/health", (_req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/applications", applicationRoutes);
+app.use("/api/requests", requestsRoutes);
+app.use("/api/ratings", ratingsRoutes);
+app.use("/api/recommendations", recommendationsRoutes);
 
 
 const port = process.env.PORT ? Number(process.env.PORT) : 4000;

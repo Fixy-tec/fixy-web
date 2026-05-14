@@ -4,6 +4,7 @@ import { Role } from "@prisma/client";
 export interface CreateUserInput {
   email: string;
   password: string;
+  name: string;
   role?: Role;
 }
 
@@ -32,6 +33,7 @@ export async function createUser(data: CreateUserInput) {
     data: {
       email: data.email,
       password: data.password,
+      name: data.name,
       role: data.role ?? Role.USER,
     },
     include: {

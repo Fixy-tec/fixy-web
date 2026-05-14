@@ -6,6 +6,7 @@ import { Role, User } from "@prisma/client";
 interface RegisterInput {
   email: string;
   password: string;
+  name: string;
 }
 
 interface LoginInput {
@@ -23,6 +24,7 @@ export async function register(input: RegisterInput) {
   const user = await authRepository.createUser({
     email: input.email,
     password: hashedPassword,
+    name: input.name,
     role: Role.USER,
   });
 

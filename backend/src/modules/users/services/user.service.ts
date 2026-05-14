@@ -14,7 +14,7 @@ export async function getCurrentUser(userId: string) {
 
 export async function updateCurrentUser(userId: string, data: {
   avatarUrl?: string;
-  whatsapp?: string;
+  whatsapp: string;
   bio?: string;
   portfolioUrl?: string;
   linkedinUrl?: string;
