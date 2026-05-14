@@ -11,6 +11,7 @@ import {
   Check,
   X,
   Lock,
+  ExternalLink,
 } from "lucide-react";
 import { FaGithub, FaLinkedin } from "react-icons/fa";
 import { useMedals, Medal } from "../context/MedalsContext";
@@ -60,7 +61,7 @@ export default function UserProfileView({ user, isOwner }: Props) {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-5">
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-5">
         {/* ── Card principal ── */}
         <div
           className="bg-white rounded-3xl border shadow-sm overflow-hidden"
@@ -69,11 +70,11 @@ export default function UserProfileView({ user, isOwner }: Props) {
           {/* Tira de color */}
           <div className="h-1.5 w-full" style={{ background: medal.color }} />
 
-          <div className="p-6 flex flex-col sm:flex-row gap-6 items-center sm:items-start">
+          <div className="p-8 flex flex-col lg:flex-row gap-8 items-center lg:items-start">
             {/* Avatar */}
             <div className="relative shrink-0">
               <div
-                className="w-44 h-44 rounded-2xl overflow-hidden border-2"
+                className="w-52 h-52 rounded-3xl overflow-hidden border-2 ring-4 ring-white bg-white"
                 style={{
                   borderColor: medal.border,
                   boxShadow: `0 0 16px ${medal.glow}`,
@@ -289,40 +290,168 @@ export default function UserProfileView({ user, isOwner }: Props) {
         )}
 
         {/* ── Links ── */}
+        {/* ── Links ── */}
         {(user.github || user.linkedin || user.portfolio) && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-              Links
-            </h2>
-            <div className="flex flex-col gap-2">
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                  Redes y plataformas del usuario
+                </h2>
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              {/* GitHub */}
               {user.github && (
                 <a
                   href={user.github}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#1a4ca3] transition-colors"
+                  className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white p-5 hover:border-[#1a4ca3]/30 hover:shadow-md transition-all"
                 >
-                  <FaGithub size={15} /> {user.github}
+                  <div className="flex items-start gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-black flex items-center justify-center shrink-0">
+                      <FaGithub size={28} color="white" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <h3 className="font-semibold text-gray-800 text-base">
+                            GitHub
+                          </h3>
+
+                          <p className="text-sm text-gray-400 truncate">
+                            {user.github.replace("https://github.com/", "@")}
+                          </p>
+                        </div>
+
+                        <ExternalLink
+                          size={16}
+                          className="text-gray-300 group-hover:text-[#1a4ca3] transition-colors"
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        <div className="px-3 py-1.5 rounded-xl bg-gray-100 text-xs font-medium text-gray-600">
+                          Open Source
+                        </div>
+
+                        <div className="px-3 py-1.5 rounded-xl bg-gray-100 text-xs font-medium text-gray-600">
+                          Repositorios
+                        </div>
+
+                        <div className="px-3 py-1.5 rounded-xl bg-gray-100 text-xs font-medium text-gray-600">
+                          Contribuciones
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </a>
               )}
+
+              {/* LinkedIn */}
               {user.linkedin && (
                 <a
                   href={user.linkedin}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#1a4ca3] transition-colors"
+                  className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-gradient-to-br from-[#f4f9ff] to-white p-5 hover:border-[#0077b5]/30 hover:shadow-md transition-all"
                 >
-                  <FaLinkedin size={15} /> {user.linkedin}
+                  <div className="flex items-start gap-4">
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+                      style={{ background: "#0077b5" }}
+                    >
+                      <FaLinkedin size={28} color="white" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <h3 className="font-semibold text-gray-800 text-base">
+                            LinkedIn
+                          </h3>
+
+                          <p className="text-sm text-gray-400 truncate">
+                            Perfil profesional
+                          </p>
+                        </div>
+
+                        <ExternalLink
+                          size={16}
+                          className="text-gray-300 group-hover:text-[#0077b5] transition-colors"
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        <div className="px-3 py-1.5 rounded-xl bg-blue-50 text-xs font-medium text-blue-700">
+                          Experiencia
+                        </div>
+
+                        <div className="px-3 py-1.5 rounded-xl bg-blue-50 text-xs font-medium text-blue-700">
+                          Skills
+                        </div>
+
+                        <div className="px-3 py-1.5 rounded-xl bg-blue-50 text-xs font-medium text-blue-700">
+                          Networking
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </a>
               )}
+
+              {/* Portfolio */}
               {user.portfolio && (
                 <a
                   href={user.portfolio}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#1a4ca3] transition-colors"
+                  className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-gradient-to-br from-[#effaf8] to-white p-5 hover:border-[#057f78]/30 hover:shadow-md transition-all"
                 >
-                  <Globe size={15} /> {user.portfolio}
+                  <div className="flex items-start gap-4">
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+                      style={{ background: "#057f78" }}
+                    >
+                      <Globe size={26} color="white" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <h3 className="font-semibold text-gray-800 text-base">
+                            Portfolio
+                          </h3>
+
+                          <p className="text-sm text-gray-400 truncate">
+                            {user.portfolio.replace(/^https?:\/\//, "")}
+                          </p>
+                        </div>
+
+                        <ExternalLink
+                          size={16}
+                          className="text-gray-300 group-hover:text-[#057f78] transition-colors"
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        <div className="px-3 py-1.5 rounded-xl bg-emerald-50 text-xs font-medium text-emerald-700">
+                          Proyectos
+                        </div>
+
+                        <div className="px-3 py-1.5 rounded-xl bg-emerald-50 text-xs font-medium text-emerald-700">
+                          UI/UX
+                        </div>
+
+                        <div className="px-3 py-1.5 rounded-xl bg-emerald-50 text-xs font-medium text-emerald-700">
+                          Showcase
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </a>
               )}
             </div>

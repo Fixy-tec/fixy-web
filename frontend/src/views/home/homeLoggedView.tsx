@@ -168,7 +168,7 @@ const HomeLoggedView = () => {
           </div>
 
           {/* SOLICITUDES */}
-          <div className="lg:col-span-12 bg-white border border-gray-100 rounded-[32px] p-6 shadow-sm">
+          <div className="lg:col-span-12 bg-white border border-gray-100 rounded-4xl p-6 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
@@ -212,7 +212,7 @@ const HomeLoggedView = () => {
                   </p>
 
                   <div className="flex items-center gap-3 mt-6">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#1a4ca3] to-[#009c70]" />
+                    <div className="w-10 h-10 rounded-full bg-linear-to-br from-[#1a4ca3] to-[#009c70]" />
 
                     <div>
                       <p className="text-sm font-medium text-gray-700">
