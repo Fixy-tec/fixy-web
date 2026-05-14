@@ -12,101 +12,8 @@ import {
   X,
   Lock,
 } from "lucide-react";
-
 import { FaGithub, FaLinkedin } from "react-icons/fa";
-
-type Medal =
-  | "Hierro"
-  | "Bronce"
-  | "Plata"
-  | "Oro"
-  | "Diamante"
-  | "Maestro"
-  | "Challenger";
-
-interface MedalInfo {
-  name: Medal;
-  min: number;
-  max: number | null;
-  color: string;
-  bg: string;
-  border: string;
-  glow: string;
-  image: string;
-}
-
-const MEDALS: MedalInfo[] = [
-  {
-    name: "Hierro",
-    min: 0,
-    max: 299,
-    color: "#8B7355",
-    bg: "#f5f0ea",
-    border: "#c4a882",
-    glow: "rgba(139,115,85,0.3)",
-    image: "/medals/hierro.png",
-  },
-  {
-    name: "Bronce",
-    min: 300,
-    max: 799,
-    color: "#CD7F32",
-    bg: "#fdf3e7",
-    border: "#e8a85a",
-    glow: "rgba(205,127,50,0.3)",
-    image: "/medals/bronze.png",
-  },
-  {
-    name: "Plata",
-    min: 800,
-    max: 1799,
-    color: "#6B7280",
-    bg: "#f3f4f6",
-    border: "#9ca3af",
-    glow: "rgba(107,114,128,0.3)",
-    image: "/medals/plata.png",
-  },
-  {
-    name: "Oro",
-    min: 1800,
-    max: 3499,
-    color: "#D97706",
-    bg: "#fffbeb",
-    border: "#fbbf24",
-    glow: "rgba(217,119,6,0.35)",
-    image: "/medals/oro.png",
-  },
-  {
-    name: "Diamante",
-    min: 3500,
-    max: 5999,
-    color: "#1a4ca3",
-    bg: "#eff4ff",
-    border: "#3b82f6",
-    glow: "rgba(26,76,163,0.35)",
-    image: "/medals/diamante.png",
-  },
-  {
-    name: "Maestro",
-    min: 6000,
-    max: 9999,
-    color: "#7C3AED",
-    bg: "#f5f3ff",
-    border: "#8b5cf6",
-    glow: "rgba(124,58,237,0.35)",
-    image: "/medals/maestro.png",
-  },
-  {
-    name: "Challenger",
-    min: 10000,
-    max: null,
-    color: "#057f78",
-    bg: "#effaf8",
-    border: "#10b981",
-    glow: "rgba(5,127,120,0.4)",
-    image: "/medals/challenger.png",
-  },
-];
+import { useMedals, Medal } from "../context/MedalsContext";
 
 export interface UserProfile {
   id: number;
@@ -132,11 +39,11 @@ interface Props {
 }
 
 export default function UserProfileView({ user, isOwner }: Props) {
-  const medal = MEDALS.find((m) => m.name === user.medal)!;
-  const nextMedal = MEDALS[MEDALS.indexOf(medal) + 1] ?? null;
-  const progress = nextMedal
-    ? ((user.points - medal.min) / (nextMedal.min - medal.min)) * 100
-    : 100;
+  const { medals, getMedalByPoints, getNextMedal, calculateMedalProgress } =
+    useMedals();
+  const medal = medals.find((m) => m.name === user.medal)!;
+  const nextMedal = getNextMedal(medal);
+  const progress = calculateMedalProgress(user.points, medal);
 
   // Estado edición (solo si isOwner)
   const [editing, setEditing] = useState(false);
