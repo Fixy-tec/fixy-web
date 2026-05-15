@@ -50,7 +50,7 @@ const BuscarView = () => {
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) {
-      router.replace("/auth/login");
+      router.replace("/forbidden?from=/find");
       return;
     }
     void refreshExplore();

@@ -1,3 +1,5 @@
+import { HttpError } from "@/src/lib/httpError";
+
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
@@ -229,7 +231,7 @@ export async function fetchRequestById(
     } catch {
       /* ignore */
     }
-    throw new Error(message);
+    throw new HttpError(response.status, message);
   }
 
   const body = (await response.json()) as RequestDetailResponse;

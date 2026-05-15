@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { notFound, useParams, useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
 import { useRequest } from "@/src/context/RequestContext";
@@ -16,6 +16,7 @@ export default function SolicitudDetailPageClient() {
     currentDetail,
     isLoadingDetail,
     detailError,
+    detailNotFound,
     loadRequestDetail,
     clearRequestDetail,
   } = useRequest();
@@ -25,7 +26,10 @@ export default function SolicitudDetailPageClient() {
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) {
-      router.replace("/auth/login");
+      const from = requestId
+        ? `/applications/${requestId}`
+        : "/applications";
+      router.replace(`/forbidden?from=${encodeURIComponent(from)}`);
       return;
     }
     if (!requestId) return;
@@ -57,11 +61,15 @@ export default function SolicitudDetailPageClient() {
     );
   }
 
+  if (detailNotFound) {
+    notFound();
+  }
+
   if (detailError || !currentDetail) {
     return (
       <div className="min-h-[50vh] flex flex-col items-center justify-center bg-gray-50 px-4">
         <p className="text-sm text-red-600 mb-4">
-          {detailError ?? "No se encontró la solicitud"}
+          {detailError ?? "No se pudo cargar la solicitud"}
         </p>
         <button
           type="button"

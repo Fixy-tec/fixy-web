@@ -8,6 +8,7 @@ import {
   getStoredToken,
   saveToken,
   removeToken,
+  syncAuthCookieFromStorage,
   isTokenValid,
   decodeToken,
   type RegisterPayload,
@@ -61,6 +62,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Token expirado, remover
       removeToken();
     }
+    syncAuthCookieFromStorage();
     setIsLoading(false);
   }, []);
 

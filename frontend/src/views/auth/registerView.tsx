@@ -51,7 +51,7 @@ const RegisterView = () => {
         email: form.email,
         password: form.password,
       });
-      router.push("/auth/on-boarding");
+      router.replace("/auth/on-boarding");
     } catch (error: any) {
       setApiError(error.message || "Error al registrarse");
     }

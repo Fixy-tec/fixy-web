@@ -67,7 +67,7 @@ export default function CreateSolicitudView() {
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) {
-      router.replace("/auth/login");
+      router.replace("/forbidden?from=/applications/crear");
     }
   }, [authLoading, isAuthenticated, router]);
 

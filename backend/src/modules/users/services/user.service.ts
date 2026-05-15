@@ -1,3 +1,4 @@
+import prisma from "../../../prisma";
 import * as userRepository from "../repositories/user.repository";
 import * as tagRepository from "../../tags/repositories/tag.repository";
 
@@ -15,9 +16,21 @@ export async function getUserById(id: string) {
   return userRepository.getUserById(id);
 }
 
+async function attachUserStats<T extends { id: string }>(user: T) {
+  const completedRequests = await prisma.request.count({
+    where: { creatorId: user.id, status: "COMPLETADA" },
+  });
+  return {
+    ...user,
+    stats: { completedRequests },
+  };
+}
+
 export async function getCurrentUser(userId: string) {
   const user = await userRepository.getUserWithProfile(userId);
-  return toPublicUser(user);
+  const publicUser = toPublicUser(user);
+  if (!publicUser) return null;
+  return attachUserStats(publicUser);
 }
 
 export class InvalidTagNamesError extends Error {
@@ -63,5 +76,7 @@ export async function updateCurrentUser(userId: string, data: {
     githubUrl: data.githubUrl,
     tagIds,
   });
-  return toPublicUser(updated);
+  const publicUser = toPublicUser(updated);
+  if (!publicUser) return null;
+  return attachUserStats(publicUser);
 }

@@ -85,28 +85,53 @@ export async function logoutUser(accessToken: string): Promise<void> {
   });
 }
 
+export const AUTH_TOKEN_KEY = "auth_token";
+
+const AUTH_COOKIE_MAX_AGE = 60 * 60 * 24 * 7;
+
+function setAuthCookie(token: string) {
+  document.cookie = `${AUTH_TOKEN_KEY}=${encodeURIComponent(token)}; path=/; max-age=${AUTH_COOKIE_MAX_AGE}; SameSite=Lax`;
+}
+
+function clearAuthCookie() {
+  document.cookie = `${AUTH_TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax`;
+}
+
 /**
  * Verifica si hay token válido en localStorage
  */
 export function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem("auth_token");
+  return localStorage.getItem(AUTH_TOKEN_KEY);
 }
 
 /**
- * Guarda el token en localStorage
+ * Guarda el token en localStorage y cookie (para middleware)
  */
 export function saveToken(token: string): void {
   if (typeof window === "undefined") return;
-  localStorage.setItem("auth_token", token);
+  localStorage.setItem(AUTH_TOKEN_KEY, token);
+  setAuthCookie(token);
 }
 
 /**
- * Elimina el token de localStorage
+ * Elimina el token de localStorage y cookie
  */
 export function removeToken(): void {
   if (typeof window === "undefined") return;
-  localStorage.removeItem("auth_token");
+  localStorage.removeItem(AUTH_TOKEN_KEY);
+  clearAuthCookie();
+}
+
+/** Sincroniza cookie desde localStorage (sesiones previas al middleware) */
+export function syncAuthCookieFromStorage(): void {
+  if (typeof window === "undefined") return;
+  const token = getStoredToken();
+  if (token && isTokenValid(token)) {
+    setAuthCookie(token);
+  } else {
+    clearAuthCookie();
+  }
 }
 
 /**

@@ -49,9 +49,9 @@ export async function getUsers(_req: Request, res: Response) {
 }
 
 export async function getUserById(req: Request, res: Response) {
-  const user = await userService.getUserById(req.params.id);
+  const user = await userService.getCurrentUser(req.params.id);
   if (!user) {
-    return res.status(404).json({ message: "User not found" });
+    return res.status(404).json({ message: "Usuario no encontrado" });
   }
   return res.json({ user });
 }

@@ -9,6 +9,7 @@ import React, {
 } from "react";
 import { useAuth } from "@/src/context/AuthContext";
 import { fetchApplicationsByApplicant } from "@/src/lib/application";
+import { isHttpError } from "@/src/lib/httpError";
 import {
   createRequest,
   fetchRequestById,
@@ -61,7 +62,8 @@ interface RequestContextValue {
   currentDetail: SolicitudDetailData | null;
   isLoadingDetail: boolean;
   detailError: string | null;
-  loadRequestDetail: (id: string) => Promise<SolicitudDetailData>;
+  detailNotFound: boolean;
+  loadRequestDetail: (id: string) => Promise<SolicitudDetailData | null>;
   clearRequestDetail: () => void;
   /** Solicitudes abiertas de otros usuarios (pestaña Buscar) */
   exploreRequests: Solicitud[];
@@ -87,6 +89,7 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
   );
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  const [detailNotFound, setDetailNotFound] = useState(false);
 
   const [exploreRequests, setExploreRequests] = useState<Solicitud[]>([]);
   const [isLoadingExplore, setIsLoadingExplore] = useState(false);
@@ -160,6 +163,7 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
     async (id: string) => {
       setIsLoadingDetail(true);
       setDetailError(null);
+      setDetailNotFound(false);
       try {
         const raw = await fetchRequestById(id);
         const detail = requestToDetail(raw, { currentUserId: user?.id });
@@ -169,8 +173,9 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
         const message =
           e instanceof Error ? e.message : "Error al cargar la solicitud";
         setDetailError(message);
+        setDetailNotFound(isHttpError(e, 404));
         setCurrentDetail(null);
-        throw e;
+        return null;
       } finally {
         setIsLoadingDetail(false);
       }
@@ -181,6 +186,7 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
   const clearRequestDetail = useCallback(() => {
     setCurrentDetail(null);
     setDetailError(null);
+    setDetailNotFound(false);
   }, []);
 
   const createSolicitud = useCallback(
@@ -257,6 +263,7 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
       currentDetail,
       isLoadingDetail,
       detailError,
+      detailNotFound,
       loadRequestDetail,
       clearRequestDetail,
       exploreRequests,
@@ -276,6 +283,7 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
       currentDetail,
       isLoadingDetail,
       detailError,
+      detailNotFound,
       loadRequestDetail,
       clearRequestDetail,
       exploreRequests,

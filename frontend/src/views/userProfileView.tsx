@@ -1,23 +1,26 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  Star,
-  Trophy,
   Globe,
   Phone,
   Pencil,
   Check,
   X,
-  Lock,
   ExternalLink,
+  Loader2,
 } from "lucide-react";
 import { FaGithub, FaLinkedin } from "react-icons/fa";
 import { useMedals, Medal } from "../context/MedalsContext";
+import { useUserProfile } from "../context/UserProfileContext";
+import {
+  mapUserDtoToProfile,
+  normalizePeWhatsapp,
+} from "@/src/lib/user";
 
 export interface UserProfile {
-  id: number;
+  id: string;
   name: string;
   carrera: string;
   avatar: string;
@@ -37,26 +40,70 @@ export interface UserProfile {
 interface Props {
   user: UserProfile;
   isOwner: boolean;
+  onProfileUpdated?: (user: UserProfile) => void;
 }
 
-export default function UserProfileView({ user, isOwner }: Props) {
+export default function UserProfileView({
+  user,
+  isOwner,
+  onProfileUpdated,
+}: Props) {
   const { medals, getMedalByPoints, getNextMedal, calculateMedalProgress } =
     useMedals();
-  const medal = medals.find((m) => m.name === user.medal)!;
+  const { saveProfile, isSaving } = useUserProfile();
+  const medal =
+    medals.find((m) => m.name === user.medal) ?? getMedalByPoints(user.points);
   const nextMedal = getNextMedal(medal);
   const progress = calculateMedalProgress(user.points, medal);
 
-  // Estado edición (solo si isOwner)
   const [editing, setEditing] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [draft, setDraft] = useState({
     bio: user.bio ?? "",
     whatsapp: user.whatsapp ?? "",
   });
 
-  const handleSave = () => {
-    // Aquí iría tu llamada a la API para guardar
-    console.log("Guardar:", draft);
-    setEditing(false);
+  useEffect(() => {
+    if (!editing) {
+      setDraft({
+        bio: user.bio ?? "",
+        whatsapp: user.whatsapp ?? "",
+      });
+    }
+  }, [user.bio, user.whatsapp, editing]);
+
+  const handleSave = async () => {
+    if (!isOwner) return;
+    setSaveError(null);
+
+    const whatsappRaw = draft.whatsapp.trim();
+    if (!whatsappRaw) {
+      setSaveError("El WhatsApp es obligatorio");
+      return;
+    }
+
+    const normalized = normalizePeWhatsapp(whatsappRaw);
+    if (normalized.length < 12) {
+      setSaveError("Ingresa un número válido (9 dígitos)");
+      return;
+    }
+
+    try {
+      const updated = await saveProfile({
+        whatsapp: normalized,
+        bio: draft.bio.trim() || undefined,
+        tags: user.tags ?? [],
+        githubUrl: user.github,
+        linkedinUrl: user.linkedin,
+        portfolioUrl: user.portfolio,
+      });
+      onProfileUpdated?.(mapUserDtoToProfile(updated));
+      setEditing(false);
+    } catch (e) {
+      setSaveError(
+        e instanceof Error ? e.message : "No se pudo guardar los cambios",
+      );
+    }
   };
 
   return (
@@ -131,13 +178,13 @@ export default function UserProfileView({ user, isOwner }: Props) {
                 <div className="bg-gray-50 rounded-xl px-4 py-2 text-center">
                   <p className="text-xs text-gray-400">Ranking</p>
                   <p className="text-lg font-bold text-gray-700">
-                    #{user.ranking}
+                    {user.ranking > 0 ? `#${user.ranking}` : "—"}
                   </p>
                 </div>
                 <div className="bg-gray-50 rounded-xl px-4 py-2 text-center">
                   <p className="text-xs text-gray-400">Rating</p>
                   <p className="text-lg font-bold text-yellow-500">
-                    ⭐ {user.rating}
+                    ⭐ {user.rating.toFixed(1)}
                   </p>
                 </div>
                 <div className="bg-gray-50 rounded-xl px-4 py-2 text-center">
@@ -195,22 +242,35 @@ export default function UserProfileView({ user, isOwner }: Props) {
               <p className="text-xs text-gray-400 text-right">
                 {draft.bio.length}/200
               </p>
+              {saveError && (
+                <p className="text-sm text-red-600">{saveError}</p>
+              )}
               <div className="flex gap-2">
                 <button
-                  onClick={handleSave}
-                  className="flex items-center gap-1.5 bg-[#1a4ca3] text-white text-sm font-medium px-4 py-2 rounded-lg"
+                  type="button"
+                  onClick={() => void handleSave()}
+                  disabled={isSaving}
+                  className="flex items-center gap-1.5 bg-[#1a4ca3] text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-60"
                 >
-                  <Check size={14} /> Guardar
+                  {isSaving ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Check size={14} />
+                  )}
+                  Guardar
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     setDraft({
                       bio: user.bio ?? "",
                       whatsapp: user.whatsapp ?? "",
                     });
+                    setSaveError(null);
                     setEditing(false);
                   }}
-                  className="flex items-center gap-1.5 bg-gray-100 text-gray-600 text-sm font-medium px-4 py-2 rounded-lg"
+                  disabled={isSaving}
+                  className="flex items-center gap-1.5 bg-gray-100 text-gray-600 text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-60"
                 >
                   <X size={14} /> Cancelar
                 </button>

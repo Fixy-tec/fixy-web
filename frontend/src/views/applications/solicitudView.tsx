@@ -25,7 +25,7 @@ export default function ApplicationsView() {
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) {
-      router.replace("/auth/login");
+      router.replace("/forbidden?from=/applications");
       return;
     }
     void refreshLists();

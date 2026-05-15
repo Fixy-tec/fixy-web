@@ -13,6 +13,6 @@ router.get("/me", authenticateJWT, getCurrentUser);
 router.patch("/me", authenticateJWT, updateCurrentUser);
 
 router.get("/", authenticateJWT, requireRole("ADMIN"), getUsers);
-router.get("/:id", authenticateJWT, requireRole("ADMIN"), getUserById);
+router.get("/:id", authenticateJWT, getUserById);
 
 export default router;
