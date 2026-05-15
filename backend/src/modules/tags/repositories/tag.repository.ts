@@ -16,6 +16,14 @@ export async function findTagsByNames(names: string[]) {
   });
 }
 
+export async function findTagsByIds(ids: string[]) {
+  if (ids.length === 0) return [];
+  return prisma.tag.findMany({
+    where: { id: { in: ids } },
+    select: { id: true, name: true },
+  });
+}
+
 export async function getTagById(id: string) {
   return prisma.tag.findUnique({
     where: { id },

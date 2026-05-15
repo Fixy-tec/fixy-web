@@ -11,7 +11,8 @@ export interface CreateRequestInput {
   economicBenefit?: number;
   participantsNeeded: number;
   deadline?: Date;
-  tags: string[];
+  /** UUIDs de filas en Tag; se enlazan vía RequestTag */
+  tagIds: string[];
 }
 
 export interface UpdateRequestInput {
@@ -24,7 +25,7 @@ export interface UpdateRequestInput {
   participantsNeeded?: number;
   deadline?: Date;
   status?: RequestStatus;
-  tags?: string[];
+  tagIds?: string[];
 }
 
 export async function createRequest(data: CreateRequestInput) {
@@ -40,13 +41,8 @@ export async function createRequest(data: CreateRequestInput) {
       participantsNeeded: data.participantsNeeded,
       deadline: data.deadline,
       tags: {
-        create: data.tags.map((tag) => ({
-          tag: {
-            connectOrCreate: {
-              where: { name: tag },
-              create: { name: tag },
-            },
-          },
+        create: data.tagIds.map((tagId) => ({
+          tag: { connect: { id: tagId } },
         })),
       },
     },
@@ -112,16 +108,11 @@ export async function updateRequest(id: string, data: UpdateRequestInput) {
     (key) => updateData[key] === undefined && delete updateData[key]
   );
 
-  if (data.tags) {
+  if (data.tagIds !== undefined) {
     updateData.tags = {
       deleteMany: {},
-      create: data.tags.map((tag) => ({
-        tag: {
-          connectOrCreate: {
-            where: { name: tag },
-            create: { name: tag },
-          },
-        },
+      create: data.tagIds.map((tagId) => ({
+        tag: { connect: { id: tagId } },
       })),
     };
   }
