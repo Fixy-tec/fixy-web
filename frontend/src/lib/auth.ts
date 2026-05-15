@@ -23,7 +23,7 @@ export interface LoginPayload {
 }
 
 /**
- * Registra un nuevo usuario
+ * POST `/auth/register` — body: `{ name, email, password }`
  */
 export async function registerUser(
   payload: RegisterPayload,
@@ -37,16 +37,20 @@ export async function registerUser(
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Error al registrarse");
+    let message = "Error al registrarse";
+    try {
+      const error = (await response.json()) as { message?: string };
+      if (error?.message) message = String(error.message);
+    } catch {
+      /* cuerpo no JSON */
+    }
+    throw new Error(message);
   }
 
   return response.json();
 }
 
-/**
- * Inicia sesión con email y password
- */
+/** POST `/auth/login` — body: `{ email, password }` */
 export async function loginUser(payload: LoginPayload): Promise<AuthResponse> {
   const response = await fetch(`${API_BASE}/auth/login`, {
     method: "POST",
@@ -57,11 +61,28 @@ export async function loginUser(payload: LoginPayload): Promise<AuthResponse> {
   });
 
   if (!response.ok) {
-    const error = await response.json();
-    throw new Error(error.message || "Credenciales inválidas");
+    let message = "Credenciales inválidas";
+    try {
+      const error = (await response.json()) as { message?: string };
+      if (error?.message) message = String(error.message);
+    } catch {
+      /* cuerpo no JSON */
+    }
+    throw new Error(message);
   }
 
   return response.json();
+}
+
+/** POST `/auth/logout` — header `Authorization: Bearer <accessToken>` */
+export async function logoutUser(accessToken: string): Promise<void> {
+  await fetch(`${API_BASE}/auth/logout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
 }
 
 /**

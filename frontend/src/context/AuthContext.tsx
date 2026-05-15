@@ -4,6 +4,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import {
   registerUser,
   loginUser,
+  logoutUser,
   getStoredToken,
   saveToken,
   removeToken,
@@ -31,7 +32,7 @@ interface AuthContextType {
   isAuthenticated: boolean;
   register: (payload: RegisterPayload) => Promise<void>;
   login: (payload: LoginPayload) => Promise<void>;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -91,10 +92,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const logout = () => {
-    removeToken();
-    setToken(null);
-    setUser(null);
+  const logout = async () => {
+    const current = token ?? getStoredToken();
+    try {
+      if (current) {
+        await logoutUser(current);
+      }
+    } catch {
+      // Red o error del servidor: igual limpiamos sesión local
+    } finally {
+      removeToken();
+      setToken(null);
+      setUser(null);
+    }
   };
 
   const value: AuthContextType = {
