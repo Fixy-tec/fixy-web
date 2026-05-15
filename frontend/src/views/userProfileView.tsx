@@ -357,7 +357,7 @@ export default function UserProfileView({ user, isOwner }: Props) {
                   href={user.linkedin}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-gradient-to-br from-[#f4f9ff] to-white p-5 hover:border-[#0077b5]/30 hover:shadow-md transition-all"
+                  className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-linear-to-br from-[#f4f9ff] to-white p-5 hover:border-[#0077b5]/30 hover:shadow-md transition-all"
                 >
                   <div className="flex items-start gap-4">
                     <div

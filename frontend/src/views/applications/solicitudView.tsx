@@ -185,6 +185,7 @@ export default function ApplicationsView() {
                 key={s.id}
                 solicitud={s}
                 onClick={handleCardClick}
+                showApplicants={tab === "mis-solicitudes"}
               />
             ))}
           </div>

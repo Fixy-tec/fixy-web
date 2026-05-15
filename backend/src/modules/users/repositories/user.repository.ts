@@ -36,7 +36,8 @@ export async function updateUserProfile(userId: string, data: {
   portfolioUrl?: string;
   linkedinUrl?: string;
   githubUrl?: string;
-  tags?: string[];
+  /** Resolved tag UUIDs from DB; undefined = leave tags unchanged, [] = clear all */
+  tagIds?: string[];
 }) {
   const profileData = {
     avatarUrl: data.avatarUrl,
@@ -47,19 +48,15 @@ export async function updateUserProfile(userId: string, data: {
     githubUrl: data.githubUrl,
   };
 
-  const tagUpdates = data.tags
-    ? {
-        deleteMany: {},
-        create: data.tags.map((tag) => ({
-          tag: {
-            connectOrCreate: {
-              where: { name: tag },
-              create: { name: tag },
-            },
-          },
-        })),
-      }
-    : undefined;
+  const tagUpdates =
+    data.tagIds !== undefined
+      ? {
+          deleteMany: {},
+          create: data.tagIds.map((tagId) => ({
+            tag: { connect: { id: tagId } },
+          })),
+        }
+      : undefined;
 
   return prisma.user.update({
     where: { id: userId },
