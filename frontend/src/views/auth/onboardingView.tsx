@@ -1,80 +1,109 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Check, ChevronRight, ChevronLeft } from "lucide-react";
+import { Check, ChevronRight, ChevronLeft, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-
-const TAGS = [
-  "JavaScript",
-  "TypeScript",
-  "React",
-  "Next.js",
-  "Python",
-  "Django",
-  "Java",
-  "Spring Boot",
-  "SQL",
-  "MongoDB",
-  "AWS",
-  "Linux",
-  "Docker",
-  "Flutter",
-  "Dart",
-  "Swift",
-  "Kotlin",
-  "Arduino",
-  "IoT",
-  "Git",
-];
-
-const AVATARS = [
-  "/avatars/fixoArte.png",
-  "/avatars/fixoCyborg.png",
-  "/avatars/fixoHacker.png",
-  "/avatars/fixoKarate.png",
-  "/avatars/fixoMoney.png",
-  "/avatars/fixoPirata.png",
-];
+import { useAuth } from "@/src/context/AuthContext";
+import { useTags } from "@/src/context/TagContext";
+import { useUserProfile } from "@/src/context/UserProfileContext";
 
 const TOTAL_STEPS = 4;
 
+type OnboardingForm = {
+  tagNames: string[];
+  avatarPath: string;
+  whatsapp: string;
+  bio: string;
+  githubUrl: string;
+  linkedinUrl: string;
+  portfolioUrl: string;
+};
+
 const OnboardingView = () => {
   const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { tags, isLoading: tagsLoading, error: tagsError } = useTags();
+  const {
+    saveProfile,
+    isSaving,
+    defaultAvatarPaths,
+    normalizeWhatsapp,
+    toAbsoluteProfileImageUrl,
+  } = useUserProfile();
+
   const [step, setStep] = useState(1);
-  const [data, setData] = useState({
-    tags: [] as string[],
-    avatar: "",
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [data, setData] = useState<OnboardingForm>({
+    tagNames: [],
+    avatarPath: "",
     whatsapp: "",
     bio: "",
-    portfolio: "",
+    githubUrl: "",
+    linkedinUrl: "",
+    portfolioUrl: "",
   });
 
-  const toggleTag = (tag: string) => {
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      router.replace("/auth/login");
+    }
+  }, [authLoading, isAuthenticated, router]);
+
+  const toggleTag = (name: string) => {
     setData((prev) => ({
       ...prev,
-      tags: prev.tags.includes(tag)
-        ? prev.tags.filter((t) => t !== tag)
-        : [...prev.tags, tag],
+      tagNames: prev.tagNames.includes(name)
+        ? prev.tagNames.filter((t) => t !== name)
+        : [...prev.tagNames, name],
     }));
   };
 
-  const handleFinish = () => {
-    console.log(data);
-    router.push("/home");
+  const whatsappOk = () => {
+    const n = normalizeWhatsapp(data.whatsapp);
+    return n.length >= 12;
   };
 
   const canNext = () => {
-    if (step === 1) return data.tags.length > 0;
-    if (step === 2) return data.avatar !== "";
+    if (step === 1) return data.tagNames.length > 0;
+    if (step === 2) return data.avatarPath !== "";
+    if (step === 3) return whatsappOk();
     return true;
   };
+
+  const handleFinish = async () => {
+    setSubmitError(null);
+    try {
+      await saveProfile({
+        tags: [...new Set(data.tagNames)],
+        whatsapp: normalizeWhatsapp(data.whatsapp),
+        avatarUrl: toAbsoluteProfileImageUrl(data.avatarPath),
+        bio: data.bio.trim() || undefined,
+        githubUrl: data.githubUrl.trim() || undefined,
+        linkedinUrl: data.linkedinUrl.trim() || undefined,
+        portfolioUrl: data.portfolioUrl.trim() || undefined,
+      });
+      router.push("/home");
+    } catch (e) {
+      setSubmitError(
+        e instanceof Error ? e.message : "No se pudo guardar tu perfil",
+      );
+    }
+  };
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#fefefe]">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1a4ca3]" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#fefefe] px-4 py-12">
       <div className="w-full max-w-lg">
-        {/* Logo */}
         <div className="text-center mb-8">
           <Link href="/">
             <Image
@@ -87,7 +116,6 @@ const OnboardingView = () => {
             />
           </Link>
 
-          {/* Progress bar */}
           <div className="flex items-center justify-center gap-2 mb-2">
             {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
               <div
@@ -105,83 +133,91 @@ const OnboardingView = () => {
           </p>
         </div>
 
-        {/* Card */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm px-8 py-10">
-          {/* Step 1 — Tags */}
+          {tagsError && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+              {tagsError}
+            </div>
+          )}
+
           {step === 1 && (
             <div>
               <h2 className="text-xl font-semibold text-gray-700 mb-1">
                 ¿Cuáles son tus tecnologías?
               </h2>
               <p className="text-sm text-gray-500 mb-6">
-                Selecciona al menos una. Esto nos ayuda a mostrarte solicitudes
-                relevantes.
+                Selecciona al menos una desde el catálogo de Fixy (tabla Tag).
               </p>
-              <div className="flex flex-wrap gap-2">
-                {TAGS.map((tag) => {
-                  const selected = data.tags.includes(tag);
-                  return (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => toggleTag(tag)}
-                      className="px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-150"
-                      style={{
-                        background: selected ? "#057f78" : "white",
-                        color: selected ? "white" : "#4b5563",
-                        borderColor: selected ? "#057f78" : "#e5e7eb",
-                      }}
-                    >
-                      {selected && (
-                        <Check
-                          size={11}
-                          className="inline mr-1"
-                          strokeWidth={2.5}
-                        />
-                      )}
-                      {tag}
-                    </button>
-                  );
-                })}
-              </div>
-              {data.tags.length > 0 && (
+              {tagsLoading ? (
+                <div className="flex justify-center py-12">
+                  <Loader2 className="w-7 h-7 animate-spin text-[#1a4ca3]" />
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  {tags.map((tag) => {
+                    const selected = data.tagNames.includes(tag.name);
+                    return (
+                      <button
+                        key={tag.id}
+                        type="button"
+                        onClick={() => toggleTag(tag.name)}
+                        className="px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-150"
+                        style={{
+                          background: selected ? "#057f78" : "white",
+                          color: selected ? "white" : "#4b5563",
+                          borderColor: selected ? "#057f78" : "#e5e7eb",
+                        }}
+                      >
+                        {selected && (
+                          <Check
+                            size={11}
+                            className="inline mr-1"
+                            strokeWidth={2.5}
+                          />
+                        )}
+                        {tag.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              {data.tagNames.length > 0 && (
                 <p className="text-xs text-[#057f78] mt-4">
-                  {data.tags.length} seleccionada
-                  {data.tags.length > 1 ? "s" : ""}
+                  {data.tagNames.length} seleccionada
+                  {data.tagNames.length > 1 ? "s" : ""}
                 </p>
               )}
             </div>
           )}
 
-          {/* Step 2 — Avatar */}
           {step === 2 && (
             <div>
               <h2 className="text-xl font-semibold text-gray-700 mb-1">
                 Elige tu avatar
               </h2>
               <p className="text-sm text-gray-500 mb-6">
-                Esta será tu imagen de perfil dentro de Fixy.
+                Guardamos la URL pública de la imagen en tu perfil.
               </p>
               <div className="grid grid-cols-3 gap-4">
-                {AVATARS.map((src, i) => (
+                {defaultAvatarPaths.map((src) => (
                   <button
-                    key={i}
+                    key={src}
                     type="button"
-                    onClick={() => setData({ ...data, avatar: src })}
+                    onClick={() => setData({ ...data, avatarPath: src })}
                     className="relative rounded-2xl overflow-hidden border-2 transition-all duration-150"
                     style={{
                       borderColor:
-                        data.avatar === src ? "#1a4ca3" : "transparent",
+                        data.avatarPath === src ? "#1a4ca3" : "transparent",
                     }}
                   >
                     <Image
                       src={src}
-                      alt={`Avatar ${i + 1}`}
+                      alt="Avatar"
                       width={120}
                       height={120}
                       className="w-full h-auto object-cover"
                     />
-                    {data.avatar === src && (
+                    {data.avatarPath === src && (
                       <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full bg-[#1a4ca3] flex items-center justify-center">
                         <Check size={11} color="white" strokeWidth={2.5} />
                       </div>
@@ -192,7 +228,6 @@ const OnboardingView = () => {
             </div>
           )}
 
-          {/* Step 3 — WhatsApp + Bio */}
           {step === 3 && (
             <div className="space-y-5">
               <div>
@@ -200,15 +235,13 @@ const OnboardingView = () => {
                   Cuéntanos sobre ti
                 </h2>
                 <p className="text-sm text-gray-500 mb-6">
-                  Esta info aparecerá en tu perfil público. Puedes editarla
-                  después.
+                  El WhatsApp es obligatorio para completar tu perfil en Fixy.
                 </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  WhatsApp{" "}
-                  <span className="text-gray-400 font-normal">(opcional)</span>
+                  WhatsApp <span className="text-red-500">*</span>
                 </label>
                 <div className="flex">
                   <span className="px-3 py-2.5 bg-gray-50 border border-r-0 border-gray-200 rounded-l-lg text-sm text-gray-500">
@@ -224,6 +257,11 @@ const OnboardingView = () => {
                     className="flex-1 px-4 py-2.5 rounded-r-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3] transition-colors"
                   />
                 </div>
+                {!whatsappOk() && data.whatsapp.length > 0 && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Ingresa un número válido (9 dígitos).
+                  </p>
+                )}
                 <p className="text-xs text-gray-400 mt-1">
                   Solo visible cuando alguien te apruebe en una solicitud.
                 </p>
@@ -249,7 +287,6 @@ const OnboardingView = () => {
             </div>
           )}
 
-          {/* Step 4 — Portafolio / redes */}
           {step === 4 && (
             <div className="space-y-5">
               <div>
@@ -257,28 +294,28 @@ const OnboardingView = () => {
                   Tus links
                 </h2>
                 <p className="text-sm text-gray-500 mb-6">
-                  Agrega tu portafolio o redes. Completamente opcional.
+                  GitHub, LinkedIn y portafolio son opcionales.
                 </p>
               </div>
 
               {[
                 {
                   label: "GitHub",
-                  key: "github",
+                  field: "githubUrl" as const,
                   placeholder: "https://github.com/tuusuario",
                 },
                 {
                   label: "LinkedIn",
-                  key: "linkedin",
+                  field: "linkedinUrl" as const,
                   placeholder: "https://linkedin.com/in/tuusuario",
                 },
                 {
                   label: "Portafolio",
-                  key: "portfolio",
+                  field: "portfolioUrl" as const,
                   placeholder: "https://tuportafolio.com",
                 },
-              ].map(({ label, key, placeholder }) => (
-                <div key={key}>
+              ].map(({ label, field, placeholder }) => (
+                <div key={field}>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     {label}{" "}
                     <span className="text-gray-400 font-normal">
@@ -288,16 +325,20 @@ const OnboardingView = () => {
                   <input
                     type="url"
                     placeholder={placeholder}
-                    value={
-                      (data as unknown as Record<string, string>)[key] ?? ""
-                    }
+                    value={data[field]}
                     onChange={(e) =>
-                      setData({ ...data, [key]: e.target.value })
+                      setData({ ...data, [field]: e.target.value })
                     }
                     className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3] transition-colors"
                   />
                 </div>
               ))}
+
+              {submitError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+                  {submitError}
+                </div>
+              )}
 
               <div className="bg-blue-50 rounded-xl p-4 mt-2">
                 <p className="text-xs text-[#1a4ca3] leading-relaxed">
@@ -308,7 +349,6 @@ const OnboardingView = () => {
             </div>
           )}
 
-          {/* Navegación */}
           <div className="flex items-center justify-between mt-8">
             {step > 1 ? (
               <button
@@ -338,10 +378,15 @@ const OnboardingView = () => {
               <button
                 type="button"
                 onClick={handleFinish}
-                className="flex items-center gap-1.5 bg-[#057f78] hover:bg-[#05605c] text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors"
+                disabled={isSaving}
+                className="flex items-center gap-1.5 bg-[#057f78] hover:bg-[#05605c] disabled:opacity-50 text-white font-semibold px-6 py-2.5 rounded-lg text-sm transition-colors"
               >
-                <Check size={16} strokeWidth={2} />
-                Ir a Fixy
+                {isSaving ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Check size={16} strokeWidth={2} />
+                )}
+                {isSaving ? "Guardando…" : "Ir a Fixy"}
               </button>
             )}
           </div>

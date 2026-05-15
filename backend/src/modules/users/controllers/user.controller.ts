@@ -24,16 +24,23 @@ export async function updateCurrentUser(req: Request, res: Response) {
   if (!whatsapp) {
     return res.status(400).json({ message: "WhatsApp is required" });
   }
-  const user = await userService.updateCurrentUser(userId, {
-    avatarUrl,
-    whatsapp,
-    bio,
-    portfolioUrl,
-    linkedinUrl,
-    githubUrl,
-    tags,
-  });
-  return res.json({ user });
+  try {
+    const user = await userService.updateCurrentUser(userId, {
+      avatarUrl,
+      whatsapp,
+      bio,
+      portfolioUrl,
+      linkedinUrl,
+      githubUrl,
+      tags,
+    });
+    return res.json({ user });
+  } catch (err) {
+    if (err instanceof userService.InvalidTagNamesError) {
+      return res.status(400).json({ message: err.message });
+    }
+    throw err;
+  }
 }
 
 export async function getUsers(_req: Request, res: Response) {

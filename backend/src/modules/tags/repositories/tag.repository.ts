@@ -8,6 +8,14 @@ export async function getTags() {
   });
 }
 
+export async function findTagsByNames(names: string[]) {
+  if (names.length === 0) return [];
+  return prisma.tag.findMany({
+    where: { name: { in: names } },
+    select: { id: true, name: true },
+  });
+}
+
 export async function getTagById(id: string) {
   return prisma.tag.findUnique({
     where: { id },
