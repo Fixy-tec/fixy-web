@@ -17,42 +17,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-import { Solicitud } from "@/src/components/cards/solicitudCard";
-
-const SOLICITUD_MOCK: Solicitud & {
-  descripcionCompleta: string;
-} = {
-  id: 1,
-  tipo: "Asesoría",
-  titulo: "Necesito ayuda con consultas SQL avanzadas",
-  descripcion:
-    "Tengo un parcial la próxima semana y no entiendo JOINs ni subconsultas.",
-  descripcionCompleta:
-    "Tengo un parcial la próxima semana sobre bases de datos relacionales y no entiendo bien cómo funcionan los JOINs.",
-  tags: ["SQL", "PostgreSQL"],
-  dificultad: 2,
-  fechaLimite: "2025-05-20",
-  fechaPublicacion: "2025-05-10",
-  postulantes: 3,
-  participantes: 1,
-  status: "Abierta",
-  autor: "Tú",
-};
-
-const POSTULANTES = [
-  {
-    id: 1,
-    nombre: "Carlos Mendoza",
-    mensaje:
-      "Tengo experiencia enseñando SQL y PostgreSQL. Puedo ayudarte con JOINs.",
-  },
-  {
-    id: 2,
-    nombre: "Lucía Fernández",
-    mensaje:
-      "He trabajado con consultas avanzadas y optimización de bases de datos.",
-  },
-];
+import type { SolicitudDetailData } from "@/src/lib/solicitudMappers";
 
 const statusStyle: Record<string, string> = {
   Abierta: "bg-emerald-50 text-emerald-700 border-emerald-100",
@@ -78,10 +43,12 @@ const durationDays = (inicio: string, fin: string) =>
       (1000 * 60 * 60 * 24),
   );
 
-export default function SolicitudDetailViewCreator() {
-  const router = useRouter();
-  const s = SOLICITUD_MOCK;
+interface Props {
+  solicitud: SolicitudDetailData;
+}
 
+export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
+  const router = useRouter();
   const dias = durationDays(s.fechaPublicacion, s.fechaLimite);
 
   return (
@@ -159,7 +126,7 @@ export default function SolicitudDetailViewCreator() {
                 {difficultyLabel[s.dificultad]}
               </p>
               <p className="text-xs text-[#057f78] font-medium">
-                +{difficultyPoints[s.dificultad]} pts
+                +{s.basePoints} pts
               </p>
             </div>
 
@@ -209,7 +176,12 @@ export default function SolicitudDetailViewCreator() {
           </div>
 
           <div className="space-y-4">
-            {POSTULANTES.map((p) => (
+            {s.postulantesDetalle.length === 0 ? (
+              <p className="text-xs text-gray-400 text-center py-4">
+                Aún no hay postulantes.
+              </p>
+            ) : (
+              s.postulantesDetalle.map((p) => (
               <div key={p.id} className="border border-gray-100 rounded-xl p-4">
                 <p className="text-sm font-semibold text-gray-800 mb-1">
                   {p.nombre}
@@ -231,7 +203,8 @@ export default function SolicitudDetailViewCreator() {
                   </button>
                 </div>
               </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
 

@@ -57,6 +57,39 @@ export interface RequestDto {
   tags: RequestTagDto[];
 }
 
+export interface RequestCreatorDto {
+  id: string;
+  name: string;
+  medal?: string;
+  profile?: { avatarUrl: string | null; avgRating?: number } | null;
+}
+
+export interface RequestApplicationDto {
+  id: string;
+  message: string;
+  status: string;
+  createdAt: string;
+  applicant?: {
+    id: string;
+    name: string;
+    profile?: { avatarUrl: string | null } | null;
+  };
+}
+
+/** Request con relaciones que devuelve el listado/detalle del API */
+export interface RequestWithRelations extends RequestDto {
+  creator?: RequestCreatorDto;
+  applications?: RequestApplicationDto[];
+}
+
+export interface RequestsListResponse {
+  requests: RequestWithRelations[];
+}
+
+export interface RequestDetailResponse {
+  request: RequestWithRelations;
+}
+
 export interface CreateRequestResponse {
   request: RequestDto;
 }
@@ -131,4 +164,53 @@ export function mapTipoToApi(
 
 export function basePointsForDifficulty(difficulty: number): number {
   return DIFFICULTY_BASE_POINTS[difficulty] ?? DIFFICULTY_BASE_POINTS[1];
+}
+
+/** GET `/requests?creatorId=…` */
+export async function fetchRequestsByCreator(
+  creatorId: string,
+): Promise<RequestWithRelations[]> {
+  const params = new URLSearchParams({ creatorId });
+  const response = await fetch(`${API_BASE}/requests?${params}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!response.ok) {
+    let message = "Error al cargar solicitudes";
+    try {
+      const body = (await response.json()) as { message?: string };
+      if (body?.message) message = String(body.message);
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message);
+  }
+
+  const body = (await response.json()) as RequestsListResponse;
+  return body.requests ?? [];
+}
+
+/** GET `/requests/:id` */
+export async function fetchRequestById(
+  id: string,
+): Promise<RequestWithRelations> {
+  const response = await fetch(`${API_BASE}/requests/${id}`, {
+    method: "GET",
+    headers: { "Content-Type": "application/json" },
+  });
+
+  if (!response.ok) {
+    let message = "Solicitud no encontrada";
+    try {
+      const body = (await response.json()) as { message?: string };
+      if (body?.message) message = String(body.message);
+    } catch {
+      /* ignore */
+    }
+    throw new Error(message);
+  }
+
+  const body = (await response.json()) as RequestDetailResponse;
+  return body.request;
 }

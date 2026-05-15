@@ -8,15 +8,26 @@ import React, {
   useState,
 } from "react";
 import { useAuth } from "@/src/context/AuthContext";
+import { fetchApplicationsByApplicant } from "@/src/lib/application";
 import {
   createRequest,
+  fetchRequestById,
+  fetchRequestsByCreator,
   basePointsForDifficulty,
   mapTipoToApi,
   DIFFICULTY_BASE_POINTS,
   DIFFICULTY_LABELS,
   type CreateRequestPayload,
   type RequestDto,
+  type RequestWithRelations,
 } from "@/src/lib/request";
+import {
+  applicationToSolicitud,
+  requestToDetail,
+  requestToSolicitud,
+  type SolicitudDetailData,
+} from "@/src/lib/solicitudMappers";
+import type { Solicitud } from "@/src/components/cards/solicitudCard";
 
 export type {
   CreateRequestPayload,
@@ -24,14 +35,13 @@ export type {
 } from "@/src/lib/request";
 
 export { DIFFICULTY_BASE_POINTS, DIFFICULTY_LABELS, basePointsForDifficulty };
+export type { SolicitudDetailData };
 
-/** Datos del wizard de crear solicitud (vista → contexto) */
 export interface CreateSolicitudFormInput {
   tipo: "Asesoría" | "Proyecto";
   titulo: string;
   descripcion: string;
   tagIds: string[];
-  /** Nombres legibles de los tags (mismo orden que tagIds) */
   tagNames?: string[];
   dificultad: number;
   fechaLimite: string;
@@ -43,16 +53,96 @@ interface RequestContextValue {
   isCreating: boolean;
   error: string | null;
   createSolicitud: (form: CreateSolicitudFormInput) => Promise<RequestDto>;
+  myRequests: Solicitud[];
+  myApplications: Solicitud[];
+  isLoadingLists: boolean;
+  listsError: string | null;
+  refreshLists: () => Promise<void>;
+  currentDetail: SolicitudDetailData | null;
+  isLoadingDetail: boolean;
+  detailError: string | null;
+  loadRequestDetail: (id: string) => Promise<SolicitudDetailData>;
+  clearRequestDetail: () => void;
 }
 
-const RequestContext = createContext<RequestContextValue | undefined>(
-  undefined,
-);
+const RequestContext = createContext<RequestContextValue | undefined>(undefined);
 
 export function RequestProvider({ children }: { children: React.ReactNode }) {
-  const { token, isAuthenticated } = useAuth();
+  const { token, isAuthenticated, user } = useAuth();
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [myRequests, setMyRequests] = useState<Solicitud[]>([]);
+  const [myApplications, setMyApplications] = useState<Solicitud[]>([]);
+  const [isLoadingLists, setIsLoadingLists] = useState(false);
+  const [listsError, setListsError] = useState<string | null>(null);
+
+  const [currentDetail, setCurrentDetail] = useState<SolicitudDetailData | null>(
+    null,
+  );
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+  const [detailError, setDetailError] = useState<string | null>(null);
+
+  const refreshLists = useCallback(async () => {
+    if (!user?.id) {
+      setMyRequests([]);
+      setMyApplications([]);
+      return;
+    }
+
+    setIsLoadingLists(true);
+    setListsError(null);
+    try {
+      const [created, applications] = await Promise.all([
+        fetchRequestsByCreator(user.id),
+        fetchApplicationsByApplicant(user.id),
+      ]);
+
+      setMyRequests(
+        created.map((r) =>
+          requestToSolicitud(r, { currentUserId: user.id }),
+        ),
+      );
+      setMyApplications(
+        applications.map((a) => applicationToSolicitud(a, user.id)),
+      );
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "Error al cargar solicitudes";
+      setListsError(message);
+      setMyRequests([]);
+      setMyApplications([]);
+    } finally {
+      setIsLoadingLists(false);
+    }
+  }, [user?.id]);
+
+  const loadRequestDetail = useCallback(
+    async (id: string) => {
+      setIsLoadingDetail(true);
+      setDetailError(null);
+      try {
+        const raw = await fetchRequestById(id);
+        const detail = requestToDetail(raw, { currentUserId: user?.id });
+        setCurrentDetail(detail);
+        return detail;
+      } catch (e) {
+        const message =
+          e instanceof Error ? e.message : "Error al cargar la solicitud";
+        setDetailError(message);
+        setCurrentDetail(null);
+        throw e;
+      } finally {
+        setIsLoadingDetail(false);
+      }
+    },
+    [user?.id],
+  );
+
+  const clearRequestDetail = useCallback(() => {
+    setCurrentDetail(null);
+    setDetailError(null);
+  }, []);
 
   const createSolicitud = useCallback(
     async (form: CreateSolicitudFormInput) => {
@@ -100,7 +190,9 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
             : {}),
         };
 
-        return await createRequest(token, payload);
+        const created = await createRequest(token, payload);
+        await refreshLists();
+        return created;
       } catch (e) {
         const message =
           e instanceof Error ? e.message : "Error al crear la solicitud";
@@ -110,7 +202,7 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
         setIsCreating(false);
       }
     },
-    [token, isAuthenticated],
+    [token, isAuthenticated, refreshLists],
   );
 
   const value = useMemo(
@@ -118,8 +210,32 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
       isCreating,
       error,
       createSolicitud,
+      myRequests,
+      myApplications,
+      isLoadingLists,
+      listsError,
+      refreshLists,
+      currentDetail,
+      isLoadingDetail,
+      detailError,
+      loadRequestDetail,
+      clearRequestDetail,
     }),
-    [isCreating, error, createSolicitud],
+    [
+      isCreating,
+      error,
+      createSolicitud,
+      myRequests,
+      myApplications,
+      isLoadingLists,
+      listsError,
+      refreshLists,
+      currentDetail,
+      isLoadingDetail,
+      detailError,
+      loadRequestDetail,
+      clearRequestDetail,
+    ],
   );
 
   return (

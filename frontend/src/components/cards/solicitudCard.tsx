@@ -4,7 +4,8 @@ type SolicitudType = "Asesoría" | "Proyecto";
 type SolicitudStatus = "Abierta" | "En proceso" | "Completada" | "Cancelada";
 
 export interface Solicitud {
-  id: number;
+  id: string;
+  creatorId?: string;
   tipo: SolicitudType;
   titulo: string;
   descripcion: string;
