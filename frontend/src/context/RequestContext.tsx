@@ -12,6 +12,7 @@ import { fetchApplicationsByApplicant } from "@/src/lib/application";
 import {
   createRequest,
   fetchRequestById,
+  fetchRequests,
   fetchRequestsByCreator,
   basePointsForDifficulty,
   mapTipoToApi,
@@ -19,7 +20,6 @@ import {
   DIFFICULTY_LABELS,
   type CreateRequestPayload,
   type RequestDto,
-  type RequestWithRelations,
 } from "@/src/lib/request";
 import {
   applicationToSolicitud,
@@ -63,6 +63,11 @@ interface RequestContextValue {
   detailError: string | null;
   loadRequestDetail: (id: string) => Promise<SolicitudDetailData>;
   clearRequestDetail: () => void;
+  /** Solicitudes abiertas de otros usuarios (pestaña Buscar) */
+  exploreRequests: Solicitud[];
+  isLoadingExplore: boolean;
+  exploreError: string | null;
+  refreshExplore: () => Promise<void>;
 }
 
 const RequestContext = createContext<RequestContextValue | undefined>(undefined);
@@ -82,6 +87,40 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
   );
   const [isLoadingDetail, setIsLoadingDetail] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+
+  const [exploreRequests, setExploreRequests] = useState<Solicitud[]>([]);
+  const [isLoadingExplore, setIsLoadingExplore] = useState(false);
+  const [exploreError, setExploreError] = useState<string | null>(null);
+
+  const refreshExplore = useCallback(async () => {
+    if (!user?.id) {
+      setExploreRequests([]);
+      return;
+    }
+
+    setIsLoadingExplore(true);
+    setExploreError(null);
+    try {
+      const open = await fetchRequests({ status: "ABIERTA" });
+      setExploreRequests(
+        open
+          .filter((r) => r.creatorId !== user.id)
+          .map((r) =>
+            requestToSolicitud(r, {
+              currentUserId: user.id,
+              autorLabel: r.creator?.name,
+            }),
+          ),
+      );
+    } catch (e) {
+      const message =
+        e instanceof Error ? e.message : "Error al buscar solicitudes";
+      setExploreError(message);
+      setExploreRequests([]);
+    } finally {
+      setIsLoadingExplore(false);
+    }
+  }, [user?.id]);
 
   const refreshLists = useCallback(async () => {
     if (!user?.id) {
@@ -220,6 +259,10 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
       detailError,
       loadRequestDetail,
       clearRequestDetail,
+      exploreRequests,
+      isLoadingExplore,
+      exploreError,
+      refreshExplore,
     }),
     [
       isCreating,
@@ -235,6 +278,10 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
       detailError,
       loadRequestDetail,
       clearRequestDetail,
+      exploreRequests,
+      isLoadingExplore,
+      exploreError,
+      refreshExplore,
     ],
   );
 

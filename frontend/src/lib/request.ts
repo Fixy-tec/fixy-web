@@ -166,15 +166,29 @@ export function basePointsForDifficulty(difficulty: number): number {
   return DIFFICULTY_BASE_POINTS[difficulty] ?? DIFFICULTY_BASE_POINTS[1];
 }
 
-/** GET `/requests?creatorId=…` */
-export async function fetchRequestsByCreator(
-  creatorId: string,
+export interface FetchRequestsFilters {
+  creatorId?: string;
+  type?: RequestTypeApi;
+  status?: string;
+}
+
+/** GET `/requests` con filtros opcionales (query público) */
+export async function fetchRequests(
+  filters?: FetchRequestsFilters,
 ): Promise<RequestWithRelations[]> {
-  const params = new URLSearchParams({ creatorId });
-  const response = await fetch(`${API_BASE}/requests?${params}`, {
-    method: "GET",
-    headers: { "Content-Type": "application/json" },
-  });
+  const params = new URLSearchParams();
+  if (filters?.creatorId) params.set("creatorId", filters.creatorId);
+  if (filters?.type) params.set("type", filters.type);
+  if (filters?.status) params.set("status", filters.status);
+
+  const qs = params.toString();
+  const response = await fetch(
+    `${API_BASE}/requests${qs ? `?${qs}` : ""}`,
+    {
+      method: "GET",
+      headers: { "Content-Type": "application/json" },
+    },
+  );
 
   if (!response.ok) {
     let message = "Error al cargar solicitudes";
@@ -189,6 +203,13 @@ export async function fetchRequestsByCreator(
 
   const body = (await response.json()) as RequestsListResponse;
   return body.requests ?? [];
+}
+
+/** GET `/requests?creatorId=…` */
+export async function fetchRequestsByCreator(
+  creatorId: string,
+): Promise<RequestWithRelations[]> {
+  return fetchRequests({ creatorId });
 }
 
 /** GET `/requests/:id` */
