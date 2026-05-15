@@ -59,13 +59,16 @@ const difficultyLabel = [
 ];
 const difficultyPoints = [0, 50, 100, 180, 280, 400];
 
-const daysLeft = (fecha: string) =>
-  Math.ceil((new Date(fecha).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+const durationDays = (inicio: string, fin: string) =>
+  Math.ceil(
+    (new Date(fin).getTime() - new Date(inicio).getTime()) /
+      (1000 * 60 * 60 * 24),
+  );
 
 export default function SolicitudDetailView() {
   const router = useRouter();
   const s = SOLICITUD_MOCK;
-  const dias = daysLeft(s.fechaLimite);
+  const dias = durationDays(s.fechaPublicacion, s.fechaLimite);
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">

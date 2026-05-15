@@ -26,17 +26,24 @@ const statusStyle: Record<SolicitudStatus, string> = {
   Cancelada: "bg-rose-50 text-rose-600 border-rose-100",
 };
 
-const daysLeft = (fecha: string) =>
-  Math.ceil((new Date(fecha).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+const durationDays = (inicio: string, fin: string) =>
+  Math.ceil(
+    (new Date(fin).getTime() - new Date(inicio).getTime()) /
+      (1000 * 60 * 60 * 24),
+  );
 
 interface Props {
   solicitud: Solicitud;
   onClick: (s: Solicitud) => void;
+  showApplicants?: boolean;
 }
 
-export default function SolicitudCard({ solicitud: s, onClick }: Props) {
-  const dias = daysLeft(s.fechaLimite);
-  const urgente = dias <= 3 && s.status === "Abierta";
+export default function SolicitudCard({
+  solicitud: s,
+  onClick,
+  showApplicants = false,
+}: Props) {
+  const dias = durationDays(s.fechaPublicacion, s.fechaLimite);
   const accentColor = s.tipo === "Asesoría" ? "#143d87" : "#057f78";
 
   return (
@@ -53,6 +60,7 @@ export default function SolicitudCard({ solicitud: s, onClick }: Props) {
       {/* Contenido */}
       <div className="flex flex-col gap-3 p-5 flex-1">
         {/* Tipo + Estado */}
+        {/* Tipo + Estado */}
         <div className="flex items-center justify-between gap-2 flex-wrap">
           <span
             className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-lg"
@@ -68,11 +76,22 @@ export default function SolicitudCard({ solicitud: s, onClick }: Props) {
             )}
             {s.tipo}
           </span>
-          <span
-            className={`text-xs px-2.5 py-1 rounded-full border font-medium ${statusStyle[s.status]}`}
-          >
-            {s.status}
-          </span>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {showApplicants && (
+              <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-[#eff4ff] text-[#1a4ca3] border border-[#dbe7ff] font-medium">
+                <Users size={11} strokeWidth={2} />
+                {s.postulantes} postulante
+                {s.postulantes !== 1 ? "s" : ""}
+              </span>
+            )}
+
+            <span
+              className={`text-xs px-2.5 py-1 rounded-full border font-medium ${statusStyle[s.status]}`}
+            >
+              {s.status}
+            </span>
+          </div>
         </div>
 
         {/* Título */}
@@ -122,12 +141,11 @@ export default function SolicitudCard({ solicitud: s, onClick }: Props) {
           </div>
 
           {/* Días restantes */}
-          <div
-            className="flex items-center gap-1 text-xs font-medium"
-            style={{ color: urgente ? "#ef4444" : "#9ca3af" }}
-          >
+          <div className="flex items-center gap-1 text-xs font-medium text-gray-500">
             <Clock size={12} strokeWidth={2} />
-            {dias > 0 ? `${dias}d` : "Vence hoy"}
+            <span>
+              {dias} día{dias !== 1 ? "s" : ""}
+            </span>
           </div>
         </div>
       </div>
