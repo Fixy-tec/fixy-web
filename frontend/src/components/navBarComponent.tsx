@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 import { LogOut, Power, User } from "lucide-react";
 
 // Cambia esto a true para probar el estado logueado
-const IS_LOGGED_IN = true;
+const IS_LOGGED_IN = false;
 
 const navLinks = [
   { href: "/home", label: "Inicio" },
@@ -27,16 +27,30 @@ export default function NavBarComponent() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo — siempre a la izquierda */}
-          <Link href="/" className="flex items-center shrink-0">
-            <Image
-              src="/gaaa.png"
-              alt="Fixy Logo"
-              width={130}
-              height={48}
-              className="object-contain h-10 w-auto"
-              priority
-            />
-          </Link>
+
+          {IS_LOGGED_IN ? (
+            <Link href="/home" className="flex items-center shrink-0">
+              <Image
+                src="/gaaa.png"
+                alt="Fixy Logo"
+                width={130}
+                height={48}
+                className="object-contain h-10 w-auto"
+                priority
+              />
+            </Link>
+          ) : (
+            <Link href="/" className="flex items-center shrink-0">
+              <Image
+                src="/gaaa.png"
+                alt="Fixy Logo"
+                width={130}
+                height={48}
+                className="object-contain h-10 w-auto"
+                priority
+              />
+            </Link>
+          )}
 
           {/* Centro — solo si está logueado */}
           {IS_LOGGED_IN && (
