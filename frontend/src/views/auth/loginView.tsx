@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 
 const LoginView = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [form, setForm] = useState({ username: "", password: "" });
+  const [form, setForm] = useState({ email: "", password: "" });
   const router = useRouter();
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,13 +56,14 @@ const LoginView = () => {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Usuario
+                Email
               </label>
+
               <input
-                type="text"
-                placeholder="Tu nombre de usuario"
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                type="email"
+                placeholder="tucorreo@ejemplo.com"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
                 className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3] transition-colors"
                 required
               />

@@ -308,7 +308,7 @@ export default function UserProfileView({ user, isOwner }: Props) {
                   href={user.github}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-gradient-to-br from-gray-50 to-white p-5 hover:border-[#1a4ca3]/30 hover:shadow-md transition-all"
+                  className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-linear-to-br from-gray-50 to-white p-5 hover:border-[#1a4ca3]/30 hover:shadow-md transition-all"
                 >
                   <div className="flex items-start gap-4">
                     <div className="w-14 h-14 rounded-2xl bg-black flex items-center justify-center shrink-0">
@@ -409,7 +409,7 @@ export default function UserProfileView({ user, isOwner }: Props) {
                   href={user.portfolio}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-gradient-to-br from-[#effaf8] to-white p-5 hover:border-[#057f78]/30 hover:shadow-md transition-all"
+                  className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-linear-to-br from-[#effaf8] to-white p-5 hover:border-[#057f78]/30 hover:shadow-md transition-all"
                 >
                   <div className="flex items-start gap-4">
                     <div

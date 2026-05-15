@@ -13,6 +13,7 @@ const RegisterView = () => {
   const [showConfirm, setShowConfirm] = useState(false);
   const router = useRouter();
   const [form, setForm] = useState({
+    name: "",
     email: "",
     password: "",
     confirmPassword: "",
@@ -21,6 +22,8 @@ const RegisterView = () => {
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
+    if (form.name.trim().length < 3)
+      newErrors.name = "Ingresa tu nombre completo";
     if (!TECSUP_REGEX.test(form.email))
       newErrors.email = "Debe ser un correo @tecsup.edu.pe";
     if (form.password.length < 8) newErrors.password = "Mínimo 8 caracteres";
@@ -77,6 +80,29 @@ const RegisterView = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Nombre completo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Nombre completo
+              </label>
+
+              <input
+                type="text"
+                placeholder="Ej. Gabriel Núñez Arenas"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className={`w-full px-4 py-2.5 rounded-lg border text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors ${
+                  errors.name
+                    ? "border-red-300 focus:ring-red-200 focus:border-red-400"
+                    : "border-gray-200 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3]"
+                }`}
+                required
+              />
+
+              {errors.name && (
+                <p className="text-xs text-red-500 mt-1">{errors.name}</p>
+              )}
+            </div>
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
