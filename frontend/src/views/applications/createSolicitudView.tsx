@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BookOpen,
@@ -10,30 +10,15 @@ import {
   Check,
   Zap,
   X,
+  Loader2,
 } from "lucide-react";
-
-const TAGS = [
-  "JavaScript",
-  "TypeScript",
-  "React",
-  "Next.js",
-  "Python",
-  "Django",
-  "Java",
-  "Spring Boot",
-  "SQL",
-  "MongoDB",
-  "AWS",
-  "Linux",
-  "Docker",
-  "Flutter",
-  "Dart",
-  "Swift",
-  "Kotlin",
-  "Arduino",
-  "IoT",
-  "Git",
-];
+import { useAuth } from "@/src/context/AuthContext";
+import { useTags } from "@/src/context/TagContext";
+import {
+  useRequest,
+  DIFFICULTY_LABELS,
+  basePointsForDifficulty,
+} from "@/src/context/RequestContext";
 
 const TOTAL_STEPS = 3;
 
@@ -41,7 +26,7 @@ interface FormData {
   tipo: "Asesoría" | "Proyecto" | "";
   titulo: string;
   descripcion: string;
-  tags: string[];
+  tagIds: string[];
   dificultad: number;
   fechaLimite: string;
   beneficio: string;
@@ -52,65 +37,132 @@ const initialForm: FormData = {
   tipo: "",
   titulo: "",
   descripcion: "",
-  tags: [],
+  tagIds: [],
   dificultad: 1,
   fechaLimite: "",
   beneficio: "",
   participantes: 1,
 };
 
-const difficultyInfo = [
-  { label: "Muy fácil", points: 50 },
-  { label: "Fácil", points: 100 },
-  { label: "Intermedio", points: 180 },
-  { label: "Difícil", points: 280 },
-  { label: "Muy difícil", points: 400 },
-];
-
 export default function CreateSolicitudView() {
   const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { tags: catalogTags, isLoading: tagsLoading, error: tagsError } =
+    useTags();
+  const { createSolicitud, isCreating } = useRequest();
+
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormData>(initialForm);
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>(
     {},
   );
+  const [submitError, setSubmitError] = useState("");
 
-  const toggleTag = (tag: string) => {
+  const tagNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    catalogTags.forEach((t) => map.set(t.id, t.name));
+    return map;
+  }, [catalogTags]);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      router.replace("/auth/login");
+    }
+  }, [authLoading, isAuthenticated, router]);
+
+  const toggleTag = (tagId: string) => {
     setForm((prev) => ({
       ...prev,
-      tags: prev.tags.includes(tag)
-        ? prev.tags.filter((t) => t !== tag)
-        : [...prev.tags, tag],
+      tagIds: prev.tagIds.includes(tagId)
+        ? prev.tagIds.filter((id) => id !== tagId)
+        : [...prev.tagIds, tagId],
     }));
   };
 
-  const validateStep = () => {
+  const validateStep = (forStep = step) => {
     const newErrors: Partial<Record<keyof FormData, string>> = {};
-    if (step === 1 && !form.tipo) newErrors.tipo = "Selecciona un tipo";
-    if (step === 2) {
+    if (forStep === 1 && !form.tipo) newErrors.tipo = "Selecciona un tipo";
+    if (forStep === 2) {
       if (!form.titulo.trim()) newErrors.titulo = "El título es obligatorio";
       if (form.titulo.length > 80) newErrors.titulo = "Máximo 80 caracteres";
       if (!form.descripcion.trim())
         newErrors.descripcion = "La descripción es obligatoria";
       if (form.descripcion.length > 1000)
         newErrors.descripcion = "Máximo 1000 caracteres";
-      if (form.tags.length === 0) newErrors.tags = "Selecciona al menos un tag";
+      if (form.tagIds.length === 0)
+        newErrors.tagIds = "Selecciona al menos un tag";
     }
-    if (step === 3 && !form.fechaLimite)
+    if (forStep === 3 && !form.fechaLimite)
       newErrors.fechaLimite = "La fecha límite es obligatoria";
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  /** Valida los 3 pasos antes de publicar (el estado del form sí se conserva entre pasos). */
+  const validateAll = () => {
+    const newErrors: Partial<Record<keyof FormData, string>> = {};
+    if (!form.tipo) newErrors.tipo = "Selecciona un tipo";
+    if (!form.titulo.trim()) newErrors.titulo = "El título es obligatorio";
+    if (form.titulo.length > 80) newErrors.titulo = "Máximo 80 caracteres";
+    if (!form.descripcion.trim())
+      newErrors.descripcion = "La descripción es obligatoria";
+    if (form.descripcion.length > 1000)
+      newErrors.descripcion = "Máximo 1000 caracteres";
+    if (form.tagIds.length === 0)
+      newErrors.tagIds = "Selecciona al menos un tag";
+    if (!form.fechaLimite)
+      newErrors.fechaLimite = "La fecha límite es obligatoria";
+    setErrors(newErrors);
+    return { ok: Object.keys(newErrors).length === 0, errors: newErrors };
   };
 
   const handleNext = () => {
     if (validateStep()) setStep((s) => s + 1);
   };
 
-  const handleSubmit = () => {
-    if (!validateStep()) return;
-    console.log(form);
-    router.push("/solicitudes?tab=mis-solicitudes");
+  const handleSubmit = async () => {
+    const { ok, errors: allErrors } = validateAll();
+    if (!ok || !form.tipo) {
+      if (allErrors.tipo) setStep(1);
+      else if (allErrors.titulo || allErrors.descripcion || allErrors.tagIds)
+        setStep(2);
+      else setStep(3);
+      return;
+    }
+
+    const tagNames = form.tagIds
+      .map((id) => tagNameById.get(id))
+      .filter((n): n is string => Boolean(n));
+
+    setSubmitError("");
+    try {
+      await createSolicitud({
+        tipo: form.tipo,
+        titulo: form.titulo,
+        descripcion: form.descripcion,
+        tagIds: form.tagIds,
+        tagNames,
+        dificultad: form.dificultad,
+        fechaLimite: form.fechaLimite,
+        participantes: form.participantes,
+        beneficio: form.beneficio,
+      });
+      router.push("/applications");
+    } catch (e) {
+      setSubmitError(
+        e instanceof Error ? e.message : "No se pudo publicar la solicitud",
+      );
+    }
   };
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1a4ca3]" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -294,18 +346,18 @@ export default function CreateSolicitudView() {
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Tags requeridos
                 </label>
-                {form.tags.length > 0 && (
+                {form.tagIds.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-2">
-                    {form.tags.map((tag) => (
+                    {form.tagIds.map((tagId) => (
                       <span
-                        key={tag}
+                        key={tagId}
                         className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-lg font-medium text-white"
                         style={{ background: "#1a4ca3" }}
                       >
-                        {tag}
+                        {tagNameById.get(tagId) ?? tagId}
                         <button
                           type="button"
-                          onClick={() => toggleTag(tag)}
+                          onClick={() => toggleTag(tagId)}
                           className="hover:opacity-70 transition-opacity"
                         >
                           <X size={10} strokeWidth={2.5} />
@@ -314,20 +366,31 @@ export default function CreateSolicitudView() {
                     ))}
                   </div>
                 )}
-                <div className="flex flex-wrap gap-1.5">
-                  {TAGS.filter((t) => !form.tags.includes(t)).map((tag) => (
-                    <button
-                      key={tag}
-                      type="button"
-                      onClick={() => toggleTag(tag)}
-                      className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-[#1a4ca3] hover:text-[#1a4ca3] transition-colors"
-                    >
-                      + {tag}
-                    </button>
-                  ))}
-                </div>
-                {errors.tags && (
-                  <p className="text-xs text-red-500 mt-1">{errors.tags}</p>
+                {tagsError && (
+                  <p className="text-xs text-amber-700 mb-2">{tagsError}</p>
+                )}
+                {tagsLoading ? (
+                  <div className="flex justify-center py-6">
+                    <Loader2 className="w-6 h-6 animate-spin text-[#1a4ca3]" />
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap gap-1.5">
+                    {catalogTags
+                      .filter((t) => !form.tagIds.includes(t.id))
+                      .map((tag) => (
+                        <button
+                          key={tag.id}
+                          type="button"
+                          onClick={() => toggleTag(tag.id)}
+                          className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-[#1a4ca3] hover:text-[#1a4ca3] transition-colors"
+                        >
+                          + {tag.name}
+                        </button>
+                      ))}
+                  </div>
+                )}
+                {errors.tagIds && (
+                  <p className="text-xs text-red-500 mt-1">{errors.tagIds}</p>
                 )}
               </div>
             </div>
@@ -385,10 +448,10 @@ export default function CreateSolicitudView() {
                 </div>
                 <div className="mt-2 flex items-center justify-between">
                   <p className="text-xs text-gray-500">
-                    {difficultyInfo[form.dificultad - 1].label}
+                    {DIFFICULTY_LABELS[form.dificultad]}
                   </p>
                   <p className="text-xs font-semibold text-[#057f78]">
-                    +{difficultyInfo[form.dificultad - 1].points} pts base
+                    +{basePointsForDifficulty(form.dificultad)} pts base
                   </p>
                 </div>
               </div>
@@ -481,6 +544,12 @@ export default function CreateSolicitudView() {
                 </p>
               </div>
 
+              {submitError && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
+                  <p className="text-xs text-red-700">{submitError}</p>
+                </div>
+              )}
+
               {/* Resumen */}
               <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
                 <p className="text-xs font-semibold text-[#1a4ca3] mb-2">
@@ -495,12 +564,14 @@ export default function CreateSolicitudView() {
                   </p>
                   <p>
                     <span className="text-gray-400">Tags:</span>{" "}
-                    {form.tags.join(", ")}
+                    {form.tagIds
+                      .map((id) => tagNameById.get(id) ?? id)
+                      .join(", ")}
                   </p>
                   <p>
                     <span className="text-gray-400">Dificultad:</span>{" "}
                     {form.dificultad}/5 — +
-                    {difficultyInfo[form.dificultad - 1].points} pts
+                    {basePointsForDifficulty(form.dificultad)} pts
                   </p>
                   <p>
                     <span className="text-gray-400">Fecha límite:</span>{" "}
@@ -531,10 +602,15 @@ export default function CreateSolicitudView() {
               <button
                 type="button"
                 onClick={handleSubmit}
-                className="flex items-center gap-1.5 text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition-colors bg-[#057f78] hover:bg-[#046860]"
+                disabled={isCreating}
+                className="flex items-center gap-1.5 text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition-colors bg-[#057f78] hover:bg-[#046860] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Check size={16} strokeWidth={2} />
-                Publicar solicitud
+                {isCreating ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Check size={16} strokeWidth={2} />
+                )}
+                {isCreating ? "Publicando…" : "Publicar solicitud"}
               </button>
             )}
           </div>

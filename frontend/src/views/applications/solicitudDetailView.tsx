@@ -13,34 +13,7 @@ import {
   Tag,
   Send,
 } from "lucide-react";
-import { Solicitud } from "@/src/components/cards/solicitudCard";
-
-// Hardcoded — reemplazar con fetch real por ID
-const SOLICITUD_MOCK: Solicitud & {
-  descripcionCompleta: string;
-  autorAvatar: string;
-  autorMedalla: string;
-  autorRating: number;
-} = {
-  id: 1,
-  tipo: "Asesoría",
-  titulo: "Necesito ayuda con consultas SQL avanzadas",
-  descripcion:
-    "Tengo un parcial la próxima semana y no entiendo JOINs ni subconsultas.",
-  descripcionCompleta:
-    "Tengo un parcial la próxima semana sobre bases de datos relacionales y no entiendo bien cómo funcionan los JOINs (INNER, LEFT, RIGHT) ni las subconsultas correlacionadas. Estoy usando PostgreSQL. Busco a alguien que me pueda explicar con ejemplos prácticos y que tenga paciencia para responder mis dudas. Idealmente haríamos una sesión de 1 a 2 horas por videollamada.",
-  tags: ["SQL", "PostgreSQL"],
-  dificultad: 2,
-  fechaLimite: "2025-05-20",
-  fechaPublicacion: "2025-05-10",
-  postulantes: 3,
-  participantes: 1,
-  status: "Abierta",
-  autor: "Carlos Mendoza",
-  autorAvatar: "",
-  autorMedalla: "Plata",
-  autorRating: 4.7,
-};
+import type { SolicitudDetailData } from "@/src/lib/solicitudMappers";
 
 const statusStyle: Record<string, string> = {
   Abierta: "bg-emerald-50 text-emerald-700 border-emerald-100",
@@ -65,9 +38,12 @@ const durationDays = (inicio: string, fin: string) =>
       (1000 * 60 * 60 * 24),
   );
 
-export default function SolicitudDetailView() {
+interface Props {
+  solicitud: SolicitudDetailData;
+}
+
+export default function SolicitudDetailView({ solicitud: s }: Props) {
   const router = useRouter();
-  const s = SOLICITUD_MOCK;
   const dias = durationDays(s.fechaPublicacion, s.fechaLimite);
 
   return (
@@ -145,7 +121,7 @@ export default function SolicitudDetailView() {
                 {difficultyLabel[s.dificultad]}
               </p>
               <p className="text-xs text-[#057f78] font-medium">
-                +{difficultyPoints[s.dificultad]} pts
+                +{s.basePoints} pts
               </p>
             </div>
 
@@ -222,13 +198,17 @@ export default function SolicitudDetailView() {
             </div>
             <div>
               <p className="text-sm font-semibold text-gray-800">{s.autor}</p>
-              <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
-                <span>⭐ {s.autorRating}</span>
-                <span>·</span>
-                <span className="font-medium" style={{ color: "#057f78" }}>
-                  {s.autorMedalla}
-                </span>
-              </div>
+              {(s.autorRating != null || s.autorMedalla) && (
+                <div className="flex items-center gap-2 text-xs text-gray-400 mt-0.5">
+                  {s.autorRating != null && <span>⭐ {s.autorRating}</span>}
+                  {s.autorRating != null && s.autorMedalla && <span>·</span>}
+                  {s.autorMedalla && (
+                    <span className="font-medium" style={{ color: "#057f78" }}>
+                      {s.autorMedalla}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import {
   Search,
   SlidersHorizontal,
@@ -9,138 +9,13 @@ import {
   Rocket,
   DollarSign,
   Zap,
+  Loader2,
 } from "lucide-react";
-import SolicitudCard, { Solicitud } from "@/src/components/cards/solicitudCard";
+import SolicitudCard from "@/src/components/cards/solicitudCard";
 import { useRouter } from "next/navigation";
-
-// ── Hardcoded data ───────────────────────────────────────────────────────────
-const SOLICITUDES: Solicitud[] = [
-  {
-    id: 1,
-    tipo: "Asesoría",
-    titulo: "Necesito ayuda con consultas SQL avanzadas",
-    descripcion:
-      "Tengo un parcial la próxima semana y no entiendo JOINs ni subconsultas. Busco alguien que me explique con ejemplos prácticos.",
-    tags: ["SQL", "PostgreSQL"],
-    dificultad: 2,
-    fechaLimite: "2025-05-20",
-    fechaPublicacion: "2025-05-10",
-    postulantes: 3,
-    participantes: 1,
-    status: "Abierta",
-    autor: "Carlos M.",
-  },
-  {
-    id: 2,
-    tipo: "Proyecto",
-    titulo: "Busco socio para app de delivery con Flutter",
-    descripcion:
-      "Tengo el diseño listo en Figma. Busco a alguien que sepa Flutter y Dart para desarrollar el frontend móvil juntos.",
-    tags: ["Flutter", "Dart"],
-    dificultad: 4,
-    fechaLimite: "2025-06-01",
-    fechaPublicacion: "2025-05-08",
-    postulantes: 5,
-    participantes: 2,
-    beneficio: "S/. 200",
-    status: "Abierta",
-    autor: "Valeria R.",
-  },
-  {
-    id: 3,
-    tipo: "Asesoría",
-    titulo: "Revisión de proyecto Django REST Framework",
-    descripcion:
-      "Necesitan revisar una API con JWT. Me postulé con mi experiencia en Django.",
-    tags: ["Python", "Django"],
-    dificultad: 3,
-    fechaLimite: "2025-05-18",
-    fechaPublicacion: "2025-05-07",
-    postulantes: 1,
-    participantes: 1,
-    status: "Abierta",
-    autor: "Andrés P.",
-  },
-  {
-    id: 4,
-    tipo: "Proyecto",
-    titulo: "Sistema IoT para monitoreo de temperatura",
-    descripcion:
-      "Proyecto con Arduino y sensores. Busco compañero con experiencia en IoT y algo de backend para guardar los datos.",
-    tags: ["Arduino", "IoT", "Python"],
-    dificultad: 3,
-    fechaLimite: "2025-05-25",
-    fechaPublicacion: "2025-05-06",
-    postulantes: 2,
-    participantes: 1,
-    status: "Abierta",
-    autor: "Lucía F.",
-  },
-  {
-    id: 5,
-    tipo: "Asesoría",
-    titulo: "Ayuda con algoritmos de ordenamiento en Java",
-    descripcion:
-      "No entiendo bien QuickSort y MergeSort. Necesito que alguien me lo explique paso a paso con código.",
-    tags: ["Java"],
-    dificultad: 2,
-    fechaLimite: "2025-05-16",
-    fechaPublicacion: "2025-05-05",
-    postulantes: 4,
-    participantes: 1,
-    status: "Abierta",
-    autor: "Miguel T.",
-  },
-  {
-    id: 6,
-    tipo: "Proyecto",
-    titulo: "App móvil de gestión de tareas con Kotlin",
-    descripcion:
-      "Emprendimiento personal. Busco socio con experiencia en Kotlin y arquitectura MVVM.",
-    tags: ["Kotlin", "Android"],
-    dificultad: 5,
-    fechaLimite: "2025-06-15",
-    fechaPublicacion: "2025-05-04",
-    postulantes: 0,
-    participantes: 2,
-    beneficio: "S/. 500",
-    status: "Abierta",
-    autor: "Sofía C.",
-  },
-  {
-    id: 7,
-    tipo: "Asesoría",
-    titulo: "Explicación de punteros en C++",
-    descripcion:
-      "Me cuesta entender la gestión de memoria y punteros. Busco una sesión de 1 hora.",
-    tags: ["C++", "Linux"],
-    dificultad: 4,
-    fechaLimite: "2025-05-22",
-    fechaPublicacion: "2025-05-03",
-    postulantes: 2,
-    participantes: 1,
-    status: "Abierta",
-    autor: "Diego R.",
-  },
-  {
-    id: 8,
-    tipo: "Proyecto",
-    titulo: "Dashboard web con React y datos en tiempo real",
-    descripcion:
-      "Necesito socio para construir un dashboard con gráficos usando React y WebSockets.",
-    tags: ["React", "JavaScript", "MongoDB"],
-    dificultad: 4,
-    fechaLimite: "2025-06-10",
-    fechaPublicacion: "2025-05-02",
-    postulantes: 3,
-    participantes: 1,
-    beneficio: "S/. 300",
-    status: "Abierta",
-    autor: "Fernanda L.",
-  },
-];
-
-const ALL_TAGS = [...new Set(SOLICITUDES.flatMap((s) => s.tags))].sort();
+import { useAuth } from "@/src/context/AuthContext";
+import { useRequest } from "@/src/context/RequestContext";
+import { useTags } from "@/src/context/TagContext";
 
 type TipoFilter = "todos" | "Asesoría" | "Proyecto";
 type PagoFilter = "todos" | "con-pago" | "voluntario";
@@ -156,12 +31,35 @@ const difficultyColors = [
 
 const BuscarView = () => {
   const router = useRouter();
+  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const {
+    exploreRequests,
+    isLoadingExplore,
+    exploreError,
+    refreshExplore,
+  } = useRequest();
+  const { tags: catalogTags } = useTags();
+
   const [query, setQuery] = useState("");
   const [tipo, setTipo] = useState<TipoFilter>("todos");
   const [pago, setPago] = useState<PagoFilter>("todos");
   const [dificultad, setDificultad] = useState<number | null>(null);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!isAuthenticated) {
+      router.replace("/auth/login");
+      return;
+    }
+    void refreshExplore();
+  }, [authLoading, isAuthenticated, refreshExplore, router]);
+
+  const allTags = useMemo(
+    () => [...catalogTags.map((t) => t.name)].sort((a, b) => a.localeCompare(b)),
+    [catalogTags],
+  );
 
   const toggleTag = (tag: string) => {
     setSelectedTags((prev) =>
@@ -185,7 +83,7 @@ const BuscarView = () => {
   ].filter(Boolean).length;
 
   const results = useMemo(() => {
-    return SOLICITUDES.filter((s) => {
+    return exploreRequests.filter((s) => {
       const matchQuery =
         !query ||
         s.titulo.toLowerCase().includes(query.toLowerCase()) ||
@@ -205,7 +103,15 @@ const BuscarView = () => {
         matchQuery && matchTipo && matchPago && matchDificultad && matchTags
       );
     });
-  }, [query, tipo, pago, dificultad, selectedTags]);
+  }, [exploreRequests, query, tipo, pago, dificultad, selectedTags]);
+
+  if (authLoading || !isAuthenticated) {
+    return (
+      <div className="min-h-[50vh] flex items-center justify-center bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-[#1a4ca3]" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -252,6 +158,12 @@ const BuscarView = () => {
             </div>
           </div>
         </div>
+
+        {exploreError && (
+          <div className="mb-6 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
+            {exploreError}
+          </div>
+        )}
 
         {/* Panel de filtros */}
         {showFilters && (
@@ -401,7 +313,7 @@ const BuscarView = () => {
                 Tags
               </p>
               <div className="flex flex-wrap gap-2">
-                {ALL_TAGS.map((tag) => {
+                {allTags.map((tag) => {
                   const active = selectedTags.includes(tag);
                   return (
                     <button
@@ -446,7 +358,11 @@ const BuscarView = () => {
           )}
         </div>
 
-        {results.length > 0 ? (
+        {isLoadingExplore ? (
+          <div className="flex justify-center py-20">
+            <Loader2 className="w-8 h-8 animate-spin text-[#1a4ca3]" />
+          </div>
+        ) : results.length > 0 ? (
           <div className="grid grid-cols-1 gap-4">
             {results.map((s) => (
               <SolicitudCard
@@ -463,14 +379,18 @@ const BuscarView = () => {
               No se encontraron solicitudes
             </p>
             <p className="text-xs text-gray-400 mt-1">
-              Intenta con otros filtros o términos de búsqueda
+              {exploreRequests.length === 0
+                ? "Aún no hay solicitudes abiertas de otros usuarios"
+                : "Intenta con otros filtros o términos de búsqueda"}
             </p>
-            <button
-              onClick={clearFilters}
-              className="mt-4 text-sm text-[#1a4ca3] hover:underline font-medium"
-            >
-              Limpiar filtros
-            </button>
+            {activeFiltersCount > 0 && (
+              <button
+                onClick={clearFilters}
+                className="mt-4 text-sm text-[#1a4ca3] hover:underline font-medium"
+              >
+                Limpiar filtros
+              </button>
+            )}
           </div>
         )}
       </div>
