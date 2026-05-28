@@ -5,7 +5,7 @@ import {
   getRequestById,
   updateRequest,
   deleteRequest,
-} from "../modules/requests/controllers/requests.controller";
+} from "../modules/requests/controllers/request.controller";
 import { authenticateJWT } from "../middlewares/auth.middleware";
 
 const router = Router();

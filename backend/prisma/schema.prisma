@@ -120,7 +120,7 @@ model Profile {
   userId        String  @unique
 
   institution   String?
-  career        String?
+  career        String @default("Desarrollo de Software") 
   cycle         Int?
 
   bio           String?

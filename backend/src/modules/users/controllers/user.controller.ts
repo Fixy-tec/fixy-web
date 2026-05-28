@@ -1,6 +1,10 @@
 import { Request, Response } from "express";
 import * as userService from "../services/user.service";
 import { AuthRequest } from "../../../middlewares/auth.middleware";
+import { ZodError } from "zod";
+
+import { updateProfileSchema }
+from "../../../validators/user.schema";
 
 export async function getCurrentUser(req: Request, res: Response) {
   const authReq = req as AuthRequest;
@@ -13,28 +17,49 @@ export async function getCurrentUser(req: Request, res: Response) {
   return res.json({ user });
 }
 
-export async function updateCurrentUser(req: Request, res: Response) {
-  const authReq = req as AuthRequest;
-  const userId = authReq.user?.userId;
-  if (!userId) {
-    return res.status(401).json({ message: "Unauthorized" });
-  }
+export async function updateCurrentUser(
+  req: Request,
+  res: Response
+) {
+  try {
 
-  const { avatarUrl, whatsapp, bio, portfolioUrl, linkedinUrl, githubUrl, tags } = req.body;
-  if (!whatsapp) {
-    return res.status(400).json({ message: "WhatsApp is required" });
+    const authReq = req as AuthRequest;
+
+    const userId = authReq.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        message: "Unauthorized",
+      });
+    }
+
+    const validatedData =
+      updateProfileSchema.parse(req.body);
+
+    const user =
+      await userService.updateCurrentUser(
+        userId,
+        validatedData
+      );
+
+    return res.json({ user });
+
+  } catch (error: any) {
+
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        message: error.issues[0]?.message,
+      });
+    }
+
+    return res.status(400).json({
+      message:
+        error.message ||
+        "Failed to update profile",
+    });
   }
-  const user = await userService.updateCurrentUser(userId, {
-    avatarUrl,
-    whatsapp,
-    bio,
-    portfolioUrl,
-    linkedinUrl,
-    githubUrl,
-    tags,
-  });
-  return res.json({ user });
 }
+
 
 export async function getUsers(_req: Request, res: Response) {
   const users = await userService.getUsers();

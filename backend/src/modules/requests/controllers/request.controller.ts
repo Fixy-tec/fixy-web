@@ -2,39 +2,53 @@ import { Request, Response } from "express";
 import * as requestsService from "../services/requests.service";
 import { AuthRequest } from "../../../middlewares/auth.middleware";
 import { RequestType, RequestStatus } from "@prisma/client";
+import { ZodError } from "zod";
+import { createRequestSchema }
+from "../../../validators/request.schema";
 
 export async function createRequest(req: Request, res: Response) {
   try {
     const authReq = req as AuthRequest;
     const userId = authReq.user?.userId;
+    
     if (!userId) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const { type, title, description, difficulty, basePoints, economicBenefit, participantsNeeded, deadline, tags } = req.body;
+    const validatedData = createRequestSchema.parse(req.body);
 
-    if (!type || !title || !description || difficulty === undefined || basePoints === undefined || !tags) {
-      return res.status(400).json({ message: "Missing required fields" });
-    }
+    const result =
+      await requestsService.createRequest({
+        creatorId: userId,
 
-    const result = await requestsService.createRequest({
-      creatorId: userId,
-      type,
-      title,
-      description,
-      difficulty,
-      basePoints,
-      economicBenefit,
-      participantsNeeded: participantsNeeded || 1,
-      deadline: deadline ? new Date(deadline) : undefined,
-      tags: Array.isArray(tags) ? tags : [tags],
-    });
+        ...validatedData,
+
+        deadline: validatedData.deadline
+          ? new Date(validatedData.deadline)
+          : undefined,
+
+        participantsNeeded:
+          validatedData.participantsNeeded || 1,
+      });
 
     return res.status(201).json(result);
+
   } catch (error: any) {
-    return res.status(400).json({ message: error.message || "Failed to create request" });
+
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        message: error.issues[0]?.message,
+      });
+    }
+
+    return res.status(400).json({
+      message:
+        error.message ||
+        "Failed to create request",
+    });
   }
 }
+
 
 export async function getRequests(req: Request, res: Response) {
   try {
