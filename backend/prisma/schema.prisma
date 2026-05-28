@@ -9,8 +9,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url = env("DATABASE_URL")
-
+  url      = env("DATABASE_URL")
 }
 
 //////////////////////
@@ -65,47 +64,47 @@ enum Medal {
 //////////////////////
 
 model User {
-  id          String @id @default(dbgenerated("gen_random_uuid()"))
-  name        String
-  email       String   @unique
-  password    String
-  isActive    Boolean  @default(true)
+  id       String  @id @default(dbgenerated("gen_random_uuid()"))
+  name     String
+  email    String  @unique
+  password String
+  isActive Boolean @default(true)
 
-  role        Role @default(USER)
+  role Role @default(USER)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // One-to-One: User -> Profile
-  profile     Profile?
-  
+  profile Profile?
+
   // Many-to-Many: User -> Tag (user interests/skills)
-  userTags    UserTag[]
+  userTags UserTag[]
 
   // One-to-Many: User creates many Requests (max 5 active)
-  requestsCreated  Request[] @relation("CreatedBy")
-  
+  requestsCreated Request[] @relation("CreatedBy")
+
   // One-to-Many: User sends many Applications
   applications Application[] @relation("AppliedBy")
 
   // One-to-Many: User gives ratings (as rater)
-  ratingsGiven    Rating[] @relation("GivenBy")
-  
+  ratingsGiven Rating[] @relation("GivenBy")
+
   // One-to-Many: User receives ratings (as rated)
   ratingsReceived Rating[] @relation("ReceivedBy")
 
   // One-to-Many: Point logs for this user
-  pointLogs   PointLog[]
+  pointLogs PointLog[]
 
   // One-to-Many: Notifications for this user
-  notifications Notification[]
-  
+  notificationRecipients NotificationRecipient[]
+
   // One-to-Many: Device tokens for push notifications
   deviceTokens DeviceToken[]
 
   // User stats
-  points      Int     @default(0)
-  medal       Medal   @default(HIERRO)
+  points Int   @default(0)
+  medal  Medal @default(HIERRO)
 
   @@index([email])
   @@index([createdAt])
@@ -116,23 +115,23 @@ model User {
 //////////////////////
 
 model Profile {
-  id            String @id @default(dbgenerated("gen_random_uuid()"))
-  userId        String  @unique
+  id     String @id @default(dbgenerated("gen_random_uuid()"))
+  userId String @unique
 
-  institution   String?
-  career        String @default("Desarrollo de Software") 
-  cycle         Int?
+  institution String?
+  career      String  @default("Desarrollo de Software")
+  cycle       Int?
 
-  bio           String?
-  avatarUrl     String?
-  whatsapp      String
-  portfolioUrl  String?
-  linkedinUrl   String?
-  githubUrl     String?
+  bio          String?
+  avatarUrl    String?
+  whatsapp     String
+  portfolioUrl String?
+  linkedinUrl  String?
+  githubUrl    String?
 
-  avgRating     Float   @default(0)
+  avgRating Float @default(0)
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 //////////////////////
@@ -140,14 +139,14 @@ model Profile {
 //////////////////////
 
 model Tag {
-  id        String @id @default(dbgenerated("gen_random_uuid()"))
-  name      String @unique
-  isCustom  Boolean @default(false)
+  id       String  @id @default(dbgenerated("gen_random_uuid()"))
+  name     String  @unique
+  isCustom Boolean @default(false)
 
   createdAt DateTime @default(now())
 
-  users     UserTag[]
-  requests  RequestTag[]
+  users    UserTag[]
+  requests RequestTag[]
 }
 
 model UserTag {
@@ -177,46 +176,41 @@ model RequestTag {
 //////////////////////
 
 model Request {
-  id          String @id @default(dbgenerated("gen_random_uuid()"))
-  
+  id String @id @default(dbgenerated("gen_random_uuid()"))
+
   // Foreign key to User (creator)
-  creatorId   String
+  creatorId String
 
   type        RequestType
   title       String
   description String
 
-  difficulty  Int @db.SmallInt // 1-5
-  basePoints  Int
+  difficulty Int @db.SmallInt // 1-5
+  basePoints Int
+
   economicBenefit Float?
 
   participantsNeeded Int @default(1)
 
-  status      RequestStatus @default(ABIERTA)
-  deadline    DateTime?
+  status   RequestStatus @default(ABIERTA)
+  deadline DateTime?
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  // Selected application when request is accepted
-  selectedApplicationId String? @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Many-to-One: Request -> User (creator, max 5 active per user)
   creator User @relation("CreatedBy", fields: [creatorId], references: [id], onDelete: Cascade)
-  
+
   // One-to-Many: Request has many Applications (applicants)
   applications Application[] @relation("AppliedTo")
-  
-  // One: Request selected one Application
-  selectedApplication Application? @relation("SelectedApplication", fields: [selectedApplicationId], references: [id], onDelete: SetNull)
 
   // Many-to-Many: Request has many Tags (project skills/areas)
-  tags         RequestTag[]
+  tags RequestTag[]
 
   // One-to-Many: Point logs for this request
-  pointLogs    PointLog[]
+  pointLogs PointLog[]
 
-  isExpired   Boolean @default(false)
+  isExpired Boolean @default(false)
 
   @@index([creatorId])
   @@index([status])
@@ -229,28 +223,26 @@ model Request {
 //////////////////////
 
 model Application {
-  id          String @id @default(dbgenerated("gen_random_uuid()"))
-  
+  id String @id @default(dbgenerated("gen_random_uuid()"))
+
   // Foreign keys
   requestId   String
   applicantId String
 
-  message     String
-  status      ApplicationStatus @default(PENDIENTE)
+  message String
+  status  ApplicationStatus @default(PENDIENTE)
 
-  createdAt   DateTime @default(now())
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Many-to-One: Application -> Request (many applications per request)
-  request     Request @relation("AppliedTo", fields: [requestId], references: [id], onDelete: Cascade)
-  
-  // Many-to-One: Application -> User (applicant, many applications per user)
-  applicant   User @relation("AppliedBy", fields: [applicantId], references: [id], onDelete: Cascade)
-  
-  // One: Application can be the selectedApplication of a Request
-  selectedIn  Request? @relation("SelectedApplication")
+  request Request @relation("AppliedTo", fields: [requestId], references: [id], onDelete: Cascade)
 
-  // One-to-One: Application generates one Rating (optional, only if completed)
-  rating      Rating?
+  // Many-to-One: Application -> User (applicant, many applications per user)
+  applicant User @relation("AppliedBy", fields: [applicantId], references: [id], onDelete: Cascade)
+
+  // One-to-Many: Application can generate multiple Ratings
+  ratings Rating[]
 
   @@unique([requestId, applicantId])
   @@index([requestId])
@@ -264,32 +256,33 @@ model Application {
 //////////////////////
 
 model Rating {
-  id            String @id @default(dbgenerated("gen_random_uuid()"))
-  
+  id String @id @default(dbgenerated("gen_random_uuid()"))
+
   // Foreign keys
-  applicationId String @unique
+  applicationId String
   raterId       String
   ratedId       String
 
-  stars         Int @db.SmallInt // 1-5
-  comment       String?
+  stars   Int     @db.SmallInt // 1-5
+  comment String?
 
-  createdAt     DateTime @default(now())
+  createdAt DateTime @default(now())
 
   // One-to-One: Rating -> Application
-  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  application Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
 
   // Many-to-One: Rating -> User (rater, the one giving the rating)
-  rater         User @relation("GivenBy", fields: [raterId], references: [id], onDelete: Cascade)
-  
+  rater User @relation("GivenBy", fields: [raterId], references: [id], onDelete: Cascade)
+
   // Many-to-One: Rating -> User (rated, the one receiving the rating)
-  rated         User @relation("ReceivedBy", fields: [ratedId], references: [id], onDelete: Cascade)
+  rated User @relation("ReceivedBy", fields: [ratedId], references: [id], onDelete: Cascade)
 
   // One-to-Many: Rating generates PointLog entries
-  pointLogs     PointLog[]
+  pointLogs PointLog[]
 
   isAutoGenerated Boolean @default(false)
 
+  @@unique([applicationId, raterId])
   @@index([raterId])
   @@index([ratedId])
   @@index([createdAt])
@@ -300,23 +293,23 @@ model Rating {
 //////////////////////
 
 model PointLog {
-  id        String @id @default(dbgenerated("gen_random_uuid()"))
+  id String @id @default(dbgenerated("gen_random_uuid()"))
 
   userId    String
   ratingId  String?
   requestId String?
 
-  delta     Int
-  reason    String
+  delta  Int
+  reason String
 
   medalBefore Medal?
   medalAfter  Medal?
 
   createdAt DateTime @default(now())
 
-  user   User   @relation(fields: [userId], references: [id])
-  request   Request? @relation(fields: [requestId], references: [id])
-  rating Rating? @relation(fields: [ratingId], references: [id])
+  user    User     @relation(fields: [userId], references: [id])
+  request Request? @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  rating  Rating?  @relation(fields: [ratingId], references: [id], onDelete: SetNull)
 }
 
 //////////////////////
@@ -324,17 +317,35 @@ model PointLog {
 //////////////////////
 
 model Notification {
-  id        String @id @default(dbgenerated("gen_random_uuid()"))
-  userId    String
+  id String @id @default(uuid())
 
-  type      NotificationType
-  data      Json?
+  type    NotificationType
+  title   String
+  message String
 
-  read      Boolean @default(false)
+  data Json?
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  user User @relation(fields: [userId], references: [id])
+  recipients NotificationRecipient[]
+}
+
+model NotificationRecipient {
+  notificationId String
+  userId         String
+
+  read   Boolean   @default(false)
+  readAt DateTime?
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([notificationId, userId])
+  @@index([userId])
+  @@index([notificationId])
+  @@index([read])
 }
 
 //////////////////////
@@ -342,13 +353,13 @@ model Notification {
 //////////////////////
 
 model DeviceToken {
-  id       String @id @default(dbgenerated("gen_random_uuid()"))
-  userId   String
+  id     String @id @default(dbgenerated("gen_random_uuid()"))
+  userId String
 
   token    String @unique
   platform String
 
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id])
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
