@@ -42,7 +42,7 @@ export class InvalidTagNamesError extends Error {
 
 export async function updateCurrentUser(userId: string, data: {
   avatarUrl?: string;
-  whatsapp?: string;
+  whatsapp: string;  // Required to match schema validation
   bio?: string;
   portfolioUrl?: string;
   linkedinUrl?: string;

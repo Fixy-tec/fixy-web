@@ -122,7 +122,7 @@ export const createRequestSchema =
       .datetime()
       .optional(),
 
-    tags: z
+    tagIds: z
       .array(z.string().transform(normalizeTag))
       .min(1)
       .max(5),

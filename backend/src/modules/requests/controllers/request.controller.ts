@@ -28,7 +28,7 @@ export async function createRequest(req: Request, res: Response) {
         basePoints: validatedData.basePoints,
         economicBenefit: validatedData.economicBenefit,
 
-        tagIds: validatedData.tags,
+        tagIds: validatedData.tagIds,
 
         deadline: validatedData.deadline
           ? new Date(validatedData.deadline)

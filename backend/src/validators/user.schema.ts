@@ -57,7 +57,7 @@ export const updateProfileSchema =
       .url()
       .optional(),
 
-    tags: z
+    tagIds: z
       .array(z.string())
       .max(5, {
         message:

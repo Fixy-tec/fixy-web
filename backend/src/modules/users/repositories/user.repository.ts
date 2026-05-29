@@ -31,7 +31,7 @@ export async function getUserWithProfile(userId: string) {
 
 export async function updateUserProfile(userId: string, data: {
   avatarUrl?: string;
-  whatsapp?: string;
+  whatsapp: string;  // Required to match schema validation
   bio?: string;
   portfolioUrl?: string;
   linkedinUrl?: string;

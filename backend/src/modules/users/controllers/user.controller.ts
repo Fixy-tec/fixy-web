@@ -39,7 +39,15 @@ export async function updateCurrentUser(
     const user =
       await userService.updateCurrentUser(
         userId,
-        validatedData
+        {
+          avatarUrl: validatedData.avatarUrl,
+          whatsapp: validatedData.whatsapp,
+          bio: validatedData.bio,
+          portfolioUrl: validatedData.portfolioUrl,
+          linkedinUrl: validatedData.linkedinUrl,
+          githubUrl: validatedData.githubUrl,
+          tags: validatedData.tagIds,
+        }
       );
 
     return res.json({ user });
