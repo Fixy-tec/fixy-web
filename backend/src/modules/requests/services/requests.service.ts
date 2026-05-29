@@ -37,11 +37,16 @@ export async function createRequest(input: CreateRequestInput) {
   }
 
   if (input.basePoints < 0) {
-    throw new Error("Base points must be greater than 0");
+    throw new Error("Base points must be 0 or greater");
   }
 
   if (input.participantsNeeded < 1) {
     throw new Error("At least 1 participant is required");
+  }
+
+  // For ASESORIA type, force participantsNeeded to 1
+  if (input.type === "ASESORIA" && input.participantsNeeded !== 1) {
+    input.participantsNeeded = 1;
   }
 
   // Validate max 5 requests per user

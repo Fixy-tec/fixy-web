@@ -87,9 +87,6 @@ export async function getRequestById(id: string) {
       applications: {
         include: { applicant: { include: { profile: true } } },
       },
-      selectedApplication: {
-        include: { applicant: { include: { profile: true } } },
-      },
     },
   });
 }
