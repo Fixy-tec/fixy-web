@@ -52,6 +52,10 @@ export async function updateCurrentUser(
       });
     }
 
+    if (error instanceof userService.InvalidTagNamesError) {
+      return res.status(400).json({ message: error.message });
+    }
+
     return res.status(400).json({
       message:
         error.message ||

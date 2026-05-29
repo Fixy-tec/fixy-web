@@ -1,115 +1,26 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
-  Star,
-  Trophy,
   Globe,
   Phone,
   Pencil,
   Check,
   X,
-  Lock,
+  ExternalLink,
+  Loader2,
 } from "lucide-react";
-
 import { FaGithub, FaLinkedin } from "react-icons/fa";
-
-type Medal =
-  | "Hierro"
-  | "Bronce"
-  | "Plata"
-  | "Oro"
-  | "Diamante"
-  | "Maestro"
-  | "Challenger";
-
-interface MedalInfo {
-  name: Medal;
-  min: number;
-  max: number | null;
-  color: string;
-  bg: string;
-  border: string;
-  glow: string;
-  image: string;
-}
-
-const MEDALS: MedalInfo[] = [
-  {
-    name: "Hierro",
-    min: 0,
-    max: 299,
-    color: "#8B7355",
-    bg: "#f5f0ea",
-    border: "#c4a882",
-    glow: "rgba(139,115,85,0.3)",
-    image: "/medals/hierro.png",
-  },
-  {
-    name: "Bronce",
-    min: 300,
-    max: 799,
-    color: "#CD7F32",
-    bg: "#fdf3e7",
-    border: "#e8a85a",
-    glow: "rgba(205,127,50,0.3)",
-    image: "/medals/bronze.png",
-  },
-  {
-    name: "Plata",
-    min: 800,
-    max: 1799,
-    color: "#6B7280",
-    bg: "#f3f4f6",
-    border: "#9ca3af",
-    glow: "rgba(107,114,128,0.3)",
-    image: "/medals/plata.png",
-  },
-  {
-    name: "Oro",
-    min: 1800,
-    max: 3499,
-    color: "#D97706",
-    bg: "#fffbeb",
-    border: "#fbbf24",
-    glow: "rgba(217,119,6,0.35)",
-    image: "/medals/oro.png",
-  },
-  {
-    name: "Diamante",
-    min: 3500,
-    max: 5999,
-    color: "#1a4ca3",
-    bg: "#eff4ff",
-    border: "#3b82f6",
-    glow: "rgba(26,76,163,0.35)",
-    image: "/medals/diamante.png",
-  },
-  {
-    name: "Maestro",
-    min: 6000,
-    max: 9999,
-    color: "#7C3AED",
-    bg: "#f5f3ff",
-    border: "#8b5cf6",
-    glow: "rgba(124,58,237,0.35)",
-    image: "/medals/maestro.png",
-  },
-  {
-    name: "Challenger",
-    min: 10000,
-    max: null,
-    color: "#057f78",
-    bg: "#effaf8",
-    border: "#10b981",
-    glow: "rgba(5,127,120,0.4)",
-    image: "/medals/challenger.png",
-  },
-];
+import { useMedals, Medal } from "../context/MedalsContext";
+import { useUserProfile } from "../context/UserProfileContext";
+import {
+  mapUserDtoToProfile,
+  normalizePeWhatsapp,
+} from "@/src/lib/user";
 
 export interface UserProfile {
-  id: number;
+  id: string;
   name: string;
   carrera: string;
   avatar: string;
@@ -129,31 +40,75 @@ export interface UserProfile {
 interface Props {
   user: UserProfile;
   isOwner: boolean;
+  onProfileUpdated?: (user: UserProfile) => void;
 }
 
-export default function UserProfileView({ user, isOwner }: Props) {
-  const medal = MEDALS.find((m) => m.name === user.medal)!;
-  const nextMedal = MEDALS[MEDALS.indexOf(medal) + 1] ?? null;
-  const progress = nextMedal
-    ? ((user.points - medal.min) / (nextMedal.min - medal.min)) * 100
-    : 100;
+export default function UserProfileView({
+  user,
+  isOwner,
+  onProfileUpdated,
+}: Props) {
+  const { medals, getMedalByPoints, getNextMedal, calculateMedalProgress } =
+    useMedals();
+  const { saveProfile, isSaving } = useUserProfile();
+  const medal =
+    medals.find((m) => m.name === user.medal) ?? getMedalByPoints(user.points);
+  const nextMedal = getNextMedal(medal);
+  const progress = calculateMedalProgress(user.points, medal);
 
-  // Estado edición (solo si isOwner)
   const [editing, setEditing] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [draft, setDraft] = useState({
     bio: user.bio ?? "",
     whatsapp: user.whatsapp ?? "",
   });
 
-  const handleSave = () => {
-    // Aquí iría tu llamada a la API para guardar
-    console.log("Guardar:", draft);
-    setEditing(false);
+  useEffect(() => {
+    if (!editing) {
+      setDraft({
+        bio: user.bio ?? "",
+        whatsapp: user.whatsapp ?? "",
+      });
+    }
+  }, [user.bio, user.whatsapp, editing]);
+
+  const handleSave = async () => {
+    if (!isOwner) return;
+    setSaveError(null);
+
+    const whatsappRaw = draft.whatsapp.trim();
+    if (!whatsappRaw) {
+      setSaveError("El WhatsApp es obligatorio");
+      return;
+    }
+
+    const normalized = normalizePeWhatsapp(whatsappRaw);
+    if (normalized.length < 12) {
+      setSaveError("Ingresa un número válido (9 dígitos)");
+      return;
+    }
+
+    try {
+      const updated = await saveProfile({
+        whatsapp: normalized,
+        bio: draft.bio.trim() || undefined,
+        tags: user.tags ?? [],
+        githubUrl: user.github,
+        linkedinUrl: user.linkedin,
+        portfolioUrl: user.portfolio,
+      });
+      onProfileUpdated?.(mapUserDtoToProfile(updated));
+      setEditing(false);
+    } catch (e) {
+      setSaveError(
+        e instanceof Error ? e.message : "No se pudo guardar los cambios",
+      );
+    }
   };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-5">
+      <div className="max-w-4xl mx-auto px-4 py-8 space-y-5">
         {/* ── Card principal ── */}
         <div
           className="bg-white rounded-3xl border shadow-sm overflow-hidden"
@@ -162,11 +117,11 @@ export default function UserProfileView({ user, isOwner }: Props) {
           {/* Tira de color */}
           <div className="h-1.5 w-full" style={{ background: medal.color }} />
 
-          <div className="p-6 flex flex-col sm:flex-row gap-6 items-center sm:items-start">
+          <div className="p-8 flex flex-col lg:flex-row gap-8 items-center lg:items-start">
             {/* Avatar */}
             <div className="relative shrink-0">
               <div
-                className="w-24 h-24 rounded-2xl overflow-hidden border-2"
+                className="w-52 h-52 rounded-3xl overflow-hidden border-2 ring-4 ring-white bg-white"
                 style={{
                   borderColor: medal.border,
                   boxShadow: `0 0 16px ${medal.glow}`,
@@ -181,12 +136,12 @@ export default function UserProfileView({ user, isOwner }: Props) {
                 />
               </div>
               {/* Medalla sobre avatar */}
-              <div className="absolute -bottom-3 -right-3 w-9 h-9">
+              <div className="absolute -bottom-4 -right-4 w-16 h-16">
                 <Image
                   src={medal.image}
                   alt={medal.name}
-                  width={36}
-                  height={36}
+                  width={64}
+                  height={64}
                   className="object-contain"
                 />
               </div>
@@ -223,13 +178,13 @@ export default function UserProfileView({ user, isOwner }: Props) {
                 <div className="bg-gray-50 rounded-xl px-4 py-2 text-center">
                   <p className="text-xs text-gray-400">Ranking</p>
                   <p className="text-lg font-bold text-gray-700">
-                    #{user.ranking}
+                    {user.ranking > 0 ? `#${user.ranking}` : "—"}
                   </p>
                 </div>
                 <div className="bg-gray-50 rounded-xl px-4 py-2 text-center">
                   <p className="text-xs text-gray-400">Rating</p>
                   <p className="text-lg font-bold text-yellow-500">
-                    ⭐ {user.rating}
+                    ⭐ {user.rating.toFixed(1)}
                   </p>
                 </div>
                 <div className="bg-gray-50 rounded-xl px-4 py-2 text-center">
@@ -287,22 +242,35 @@ export default function UserProfileView({ user, isOwner }: Props) {
               <p className="text-xs text-gray-400 text-right">
                 {draft.bio.length}/200
               </p>
+              {saveError && (
+                <p className="text-sm text-red-600">{saveError}</p>
+              )}
               <div className="flex gap-2">
                 <button
-                  onClick={handleSave}
-                  className="flex items-center gap-1.5 bg-[#1a4ca3] text-white text-sm font-medium px-4 py-2 rounded-lg"
+                  type="button"
+                  onClick={() => void handleSave()}
+                  disabled={isSaving}
+                  className="flex items-center gap-1.5 bg-[#1a4ca3] text-white text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-60"
                 >
-                  <Check size={14} /> Guardar
+                  {isSaving ? (
+                    <Loader2 size={14} className="animate-spin" />
+                  ) : (
+                    <Check size={14} />
+                  )}
+                  Guardar
                 </button>
                 <button
+                  type="button"
                   onClick={() => {
                     setDraft({
                       bio: user.bio ?? "",
                       whatsapp: user.whatsapp ?? "",
                     });
+                    setSaveError(null);
                     setEditing(false);
                   }}
-                  className="flex items-center gap-1.5 bg-gray-100 text-gray-600 text-sm font-medium px-4 py-2 rounded-lg"
+                  disabled={isSaving}
+                  className="flex items-center gap-1.5 bg-gray-100 text-gray-600 text-sm font-medium px-4 py-2 rounded-lg disabled:opacity-60"
                 >
                   <X size={14} /> Cancelar
                 </button>
@@ -382,40 +350,168 @@ export default function UserProfileView({ user, isOwner }: Props) {
         )}
 
         {/* ── Links ── */}
+        {/* ── Links ── */}
         {(user.github || user.linkedin || user.portfolio) && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
-              Links
-            </h2>
-            <div className="flex flex-col gap-2">
+          <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+                  Redes y plataformas del usuario
+                </h2>
+              </div>
+            </div>
+
+            <div className="grid gap-4">
+              {/* GitHub */}
               {user.github && (
                 <a
                   href={user.github}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#1a4ca3] transition-colors"
+                  className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-linear-to-br from-gray-50 to-white p-5 hover:border-[#1a4ca3]/30 hover:shadow-md transition-all"
                 >
-                  <FaGithub size={15} /> {user.github}
+                  <div className="flex items-start gap-4">
+                    <div className="w-14 h-14 rounded-2xl bg-black flex items-center justify-center shrink-0">
+                      <FaGithub size={28} color="white" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <h3 className="font-semibold text-gray-800 text-base">
+                            GitHub
+                          </h3>
+
+                          <p className="text-sm text-gray-400 truncate">
+                            {user.github.replace("https://github.com/", "@")}
+                          </p>
+                        </div>
+
+                        <ExternalLink
+                          size={16}
+                          className="text-gray-300 group-hover:text-[#1a4ca3] transition-colors"
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        <div className="px-3 py-1.5 rounded-xl bg-gray-100 text-xs font-medium text-gray-600">
+                          Open Source
+                        </div>
+
+                        <div className="px-3 py-1.5 rounded-xl bg-gray-100 text-xs font-medium text-gray-600">
+                          Repositorios
+                        </div>
+
+                        <div className="px-3 py-1.5 rounded-xl bg-gray-100 text-xs font-medium text-gray-600">
+                          Contribuciones
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </a>
               )}
+
+              {/* LinkedIn */}
               {user.linkedin && (
                 <a
                   href={user.linkedin}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#1a4ca3] transition-colors"
+                  className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-linear-to-br from-[#f4f9ff] to-white p-5 hover:border-[#0077b5]/30 hover:shadow-md transition-all"
                 >
-                  <FaLinkedin size={15} /> {user.linkedin}
+                  <div className="flex items-start gap-4">
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+                      style={{ background: "#0077b5" }}
+                    >
+                      <FaLinkedin size={28} color="white" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <h3 className="font-semibold text-gray-800 text-base">
+                            LinkedIn
+                          </h3>
+
+                          <p className="text-sm text-gray-400 truncate">
+                            Perfil profesional
+                          </p>
+                        </div>
+
+                        <ExternalLink
+                          size={16}
+                          className="text-gray-300 group-hover:text-[#0077b5] transition-colors"
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        <div className="px-3 py-1.5 rounded-xl bg-blue-50 text-xs font-medium text-blue-700">
+                          Experiencia
+                        </div>
+
+                        <div className="px-3 py-1.5 rounded-xl bg-blue-50 text-xs font-medium text-blue-700">
+                          Skills
+                        </div>
+
+                        <div className="px-3 py-1.5 rounded-xl bg-blue-50 text-xs font-medium text-blue-700">
+                          Networking
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </a>
               )}
+
+              {/* Portfolio */}
               {user.portfolio && (
                 <a
                   href={user.portfolio}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-[#1a4ca3] transition-colors"
+                  className="group relative overflow-hidden rounded-2xl border border-gray-100 bg-linear-to-br from-[#effaf8] to-white p-5 hover:border-[#057f78]/30 hover:shadow-md transition-all"
                 >
-                  <Globe size={15} /> {user.portfolio}
+                  <div className="flex items-start gap-4">
+                    <div
+                      className="w-14 h-14 rounded-2xl flex items-center justify-center shrink-0"
+                      style={{ background: "#057f78" }}
+                    >
+                      <Globe size={26} color="white" />
+                    </div>
+
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <h3 className="font-semibold text-gray-800 text-base">
+                            Portfolio
+                          </h3>
+
+                          <p className="text-sm text-gray-400 truncate">
+                            {user.portfolio.replace(/^https?:\/\//, "")}
+                          </p>
+                        </div>
+
+                        <ExternalLink
+                          size={16}
+                          className="text-gray-300 group-hover:text-[#057f78] transition-colors"
+                        />
+                      </div>
+
+                      <div className="flex flex-wrap gap-2 mt-4">
+                        <div className="px-3 py-1.5 rounded-xl bg-emerald-50 text-xs font-medium text-emerald-700">
+                          Proyectos
+                        </div>
+
+                        <div className="px-3 py-1.5 rounded-xl bg-emerald-50 text-xs font-medium text-emerald-700">
+                          UI/UX
+                        </div>
+
+                        <div className="px-3 py-1.5 rounded-xl bg-emerald-50 text-xs font-medium text-emerald-700">
+                          Showcase
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </a>
               )}
             </div>

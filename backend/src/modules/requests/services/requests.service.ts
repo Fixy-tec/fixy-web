@@ -1,4 +1,5 @@
 import * as requestsRepository from "../repositories/requests.repository";
+import * as tagRepository from "../../tags/repositories/tag.repository";
 import { RequestType, RequestStatus } from "@prisma/client";
 
 interface CreateRequestInput {
@@ -11,7 +12,7 @@ interface CreateRequestInput {
   economicBenefit?: number;
   participantsNeeded: number;
   deadline?: Date;
-  tags: string[];
+  tagIds: string[];
 }
 
 interface UpdateRequestInput {
@@ -24,7 +25,32 @@ interface UpdateRequestInput {
   participantsNeeded?: number;
   deadline?: Date;
   status?: RequestStatus;
-  tags?: string[];
+  tagIds?: string[];
+}
+
+export class InvalidTagIdsError extends Error {
+  constructor() {
+    super("Uno o más tags no existen en el catálogo");
+    this.name = "InvalidTagIdsError";
+  }
+}
+
+async function resolveTagIds(tagIdsOrNames: string[]): Promise<string[]> {
+  const unique = [
+    ...new Set(tagIdsOrNames.map((id) => id.trim()).filter((id) => id.length > 0)),
+  ];
+  if (unique.length === 0) return [];
+
+  const byId = await tagRepository.findTagsByIds(unique);
+  if (byId.length === unique.length) {
+    return byId.map((t) => t.id);
+  }
+
+  const byName = await tagRepository.findTagsByNames(unique);
+  if (byName.length !== unique.length) {
+    throw new InvalidTagIdsError();
+  }
+  return byName.map((t) => t.id);
 }
 
 export async function createRequest(input: CreateRequestInput) {
@@ -44,18 +70,26 @@ export async function createRequest(input: CreateRequestInput) {
     throw new Error("At least 1 participant is required");
   }
 
+  if (!input.tagIds?.length) {
+    throw new Error("At least one tag is required");
+  }
+
   // For ASESORIA type, force participantsNeeded to 1
   if (input.type === "ASESORIA" && input.participantsNeeded !== 1) {
     input.participantsNeeded = 1;
   }
 
   // Validate max 5 requests per user
-  const userRequestCount = await requestsRepository.getUserRequestCount(input.creatorId);
+  const userRequestCount = await requestsRepository.getUserRequestCount(
+    input.creatorId,
+  );
   if (userRequestCount >= 5) {
     throw new Error("Users can have a maximum of 5 active requests");
   }
 
-  return requestsRepository.createRequest(input);
+  const tagIds = await resolveTagIds(input.tagIds);
+
+  return requestsRepository.createRequest({ ...input, tagIds });
 }
 
 export async function getRequests(filters?: {
@@ -96,9 +130,21 @@ export async function updateRequest(id: string, input: UpdateRequestInput) {
     if (input.participantsNeeded < 1) {
       throw new Error("At least 1 participant is required");
     }
+    // For ASESORIA type, ensure participantsNeeded is 1
+    if (request.type === "ASESORIA" && input.participantsNeeded !== 1) {
+      input.participantsNeeded = 1;
+    }
   }
 
-  return requestsRepository.updateRequest(id, input);
+  let tagIds: string[] | undefined = undefined;
+  if (input.tagIds !== undefined) {
+    if (input.tagIds.length === 0) {
+      throw new Error("At least one tag is required");
+    }
+    tagIds = await resolveTagIds(input.tagIds);
+  }
+
+  return requestsRepository.updateRequest(id, { ...input, tagIds });
 }
 
 export async function deleteRequest(id: string) {

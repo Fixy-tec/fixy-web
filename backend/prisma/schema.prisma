@@ -37,7 +37,7 @@ model Profile {
   userId       String  @unique
   career       String  @default("Desarrollo de Software")
   cycle        Int?
-  whatsapp     String?
+  whatsapp     String
   avatarUrl    String?
   avgRating    Float   @default(0)
   bio          String?

@@ -5,21 +5,52 @@ import Image from "next/image";
 import Link from "next/link";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/src/context/AuthContext";
+
+const TECSUP_REGEX = /^[a-zA-Z0-9._%+-]+@tecsup\.edu\.pe$/;
 
 const LoginView = () => {
   const [showPassword, setShowPassword] = useState(false);
-  const [form, setForm] = useState({ username: "", password: "" });
+  const [form, setForm] = useState({ email: "", password: "" });
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [apiError, setApiError] = useState("");
   const router = useRouter();
-  const handleSubmit = (e: React.FormEvent) => {
+  const { login, isLoading } = useAuth();
+
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+    if (!TECSUP_REGEX.test(form.email.trim()))
+      newErrors.email = "Debe ser un correo @tecsup.edu.pe";
+    if (!form.password) newErrors.password = "Ingresa tu contraseña";
+    return newErrors;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log(form);
-    router.push("/home");
+    const newErrors = validate();
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
+    setApiError("");
+
+    try {
+      await login({
+        email: form.email.trim(),
+        password: form.password,
+      });
+      router.push("/home");
+    } catch (error: unknown) {
+      setApiError(
+        error instanceof Error ? error.message : "Error al iniciar sesión",
+      );
+    }
   };
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#fefefe] px-4">
       <div className="flex flex-col lg:flex-row items-center justify-center gap-12 w-full max-w-4xl">
-        {/* Imagen — mismo porte que el form */}
         <div className="hidden lg:flex items-center justify-center flex-1">
           <Image
             src="/fixo_wall_hii.png"
@@ -30,9 +61,7 @@ const LoginView = () => {
           />
         </div>
 
-        {/* Formulario */}
         <div className="w-full max-w-sm bg-white rounded-2xl border border-gray-100 shadow-sm px-8 py-10 flex-1">
-          {/* Logo + título */}
           <div className="mb-8 text-center">
             <Link href="/">
               <Image
@@ -48,47 +77,57 @@ const LoginView = () => {
               Bienvenido de vuelta
             </h1>
             <p className="text-sm text-gray-500">
-              Ingresa tus datos para continuar
+              Correo institucional y contraseña
             </p>
           </div>
 
-          {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            {apiError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                <p className="text-xs text-red-700">{apiError}</p>
+              </div>
+            )}
+
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Usuario
+                Correo institucional
               </label>
               <input
-                type="text"
-                placeholder="Tu nombre de usuario"
-                value={form.username}
-                onChange={(e) => setForm({ ...form, username: e.target.value })}
-                className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3] transition-colors"
+                type="email"
+                autoComplete="email"
+                placeholder="tunombre@tecsup.edu.pe"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+                className={`w-full px-4 py-2.5 rounded-lg border text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors ${
+                  errors.email
+                    ? "border-red-300 focus:ring-red-200 focus:border-red-400"
+                    : "border-gray-200 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3]"
+                }`}
                 required
               />
+              {errors.email && (
+                <p className="text-xs text-red-500 mt-1">{errors.email}</p>
+              )}
             </div>
 
             <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="block text-sm font-medium text-gray-700">
-                  Contraseña
-                </label>
-                <Link
-                  href="/forgot-password"
-                  className="text-xs text-[#1a4ca3] hover:underline"
-                >
-                  ¿Olvidaste tu contraseña?
-                </Link>
-              </div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Contraseña
+              </label>
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
+                  autoComplete="current-password"
                   placeholder="Tu contraseña"
                   value={form.password}
                   onChange={(e) =>
                     setForm({ ...form, password: e.target.value })
                   }
-                  className="w-full px-4 py-2.5 pr-10 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3] transition-colors"
+                  className={`w-full px-4 py-2.5 pr-10 rounded-lg border text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors ${
+                    errors.password
+                      ? "border-red-300 focus:ring-red-200 focus:border-red-400"
+                      : "border-gray-200 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3]"
+                  }`}
                   required
                 />
                 <button
@@ -103,14 +142,18 @@ const LoginView = () => {
                   )}
                 </button>
               </div>
+              {errors.password && (
+                <p className="text-xs text-red-500 mt-1">{errors.password}</p>
+              )}
             </div>
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 bg-[#057f78] hover:bg-[#05605c] text-white font-semibold py-2.5 rounded-lg transition-colors text-sm mt-2"
+              disabled={isLoading}
+              className="w-full flex items-center justify-center gap-2 bg-[#057f78] hover:bg-[#05605c] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors text-sm mt-2"
             >
               <LogIn size={16} strokeWidth={2} />
-              Iniciar sesión
+              {isLoading ? "Entrando…" : "Iniciar sesión"}
             </button>
           </form>
 

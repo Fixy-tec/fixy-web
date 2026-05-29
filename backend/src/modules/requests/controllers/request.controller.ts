@@ -21,7 +21,14 @@ export async function createRequest(req: Request, res: Response) {
       await requestsService.createRequest({
         creatorId: userId,
 
-        ...validatedData,
+        type: validatedData.type,
+        title: validatedData.title,
+        description: validatedData.description,
+        difficulty: validatedData.difficulty,
+        basePoints: validatedData.basePoints,
+        economicBenefit: validatedData.economicBenefit,
+
+        tagIds: validatedData.tags,
 
         deadline: validatedData.deadline
           ? new Date(validatedData.deadline)
@@ -31,7 +38,7 @@ export async function createRequest(req: Request, res: Response) {
           validatedData.participantsNeeded || 1,
       });
 
-    return res.status(201).json(result);
+    return res.status(201).json({ request: result });
 
   } catch (error: any) {
 
@@ -39,6 +46,10 @@ export async function createRequest(req: Request, res: Response) {
       return res.status(400).json({
         message: error.issues[0]?.message,
       });
+    }
+
+    if (error instanceof requestsService.InvalidTagIdsError) {
+      return res.status(400).json({ message: error.message });
     }
 
     return res.status(400).json({
@@ -91,7 +102,7 @@ export async function updateRequest(req: Request, res: Response) {
     }
 
     const { id } = req.params;
-    const { type, title, description, difficulty, basePoints, economicBenefit, participantsNeeded, deadline, status, tags } = req.body;
+    const { type, title, description, difficulty, basePoints, economicBenefit, participantsNeeded, deadline, status, tagIds } = req.body;
 
     // Verify ownership
     const request = await requestsService.getRequestById(id);
@@ -109,12 +120,15 @@ export async function updateRequest(req: Request, res: Response) {
       participantsNeeded,
       deadline: deadline ? new Date(deadline) : undefined,
       status,
-      tags: tags ? (Array.isArray(tags) ? tags : [tags]) : undefined,
+      tagIds: tagIds ? (Array.isArray(tagIds) ? tagIds : [tagIds]) : undefined,
     };
 
     const result = await requestsService.updateRequest(id, updateData);
-    return res.json(result);
+    return res.json({ request: result });
   } catch (error: any) {
+    if (error instanceof requestsService.InvalidTagIdsError) {
+      return res.status(400).json({ message: error.message });
+    }
     return res.status(400).json({ message: error.message || "Failed to update request" });
   }
 }

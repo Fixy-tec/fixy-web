@@ -9,131 +9,8 @@ import {
   Users,
   ChevronRight,
 } from "lucide-react";
-
 import { useRouter } from "next/navigation";
-
-type Medal =
-  | "Hierro"
-  | "Bronce"
-  | "Plata"
-  | "Oro"
-  | "Diamante"
-  | "Maestro"
-  | "Challenger";
-
-interface MedalInfo {
-  name: Medal;
-  min: number;
-  max: number | null;
-  description: string;
-  color: string;
-  bg: string;
-  border: string;
-  glow: string;
-  image: string;
-}
-
-interface Student {
-  id: number;
-  name: string;
-  points: number;
-  medal: Medal;
-  avatar: string;
-  rating: number;
-  completadas: number;
-  carrera: string;
-}
-
-// ── Config de medallas ───────────────────────────────────────────────────────
-const MEDALS: MedalInfo[] = [
-  {
-    name: "Hierro",
-    min: 0,
-    max: 299,
-    description: "Usuario nuevo, sin historial.",
-    color: "#8B7355",
-    bg: "#f5f0ea",
-    border: "#c4a882",
-    glow: "rgba(139,115,85,0.3)",
-    image: "/medals/hierro.png",
-  },
-  {
-    name: "Bronce",
-    min: 300,
-    max: 799,
-    description: "Ha completado sus primeras solicitudes.",
-    color: "#CD7F32",
-    bg: "#fdf3e7",
-    border: "#e8a85a",
-    glow: "rgba(205,127,50,0.3)",
-    image: "/medals/bronze.png",
-  },
-  {
-    name: "Plata",
-    min: 800,
-    max: 1799,
-    description: "Usuario activo con buena reputación.",
-    color: "#6B7280",
-    bg: "#f3f4f6",
-    border: "#9ca3af",
-    glow: "rgba(107,114,128,0.3)",
-    image: "/medals/plata.png",
-  },
-  {
-    name: "Oro",
-    min: 1800,
-    max: 3499,
-    description: "Destacado, muy confiable. Top 30%.",
-    color: "#D97706",
-    bg: "#fffbeb",
-    border: "#fbbf24",
-    glow: "rgba(217,119,6,0.35)",
-    image: "/medals/oro.png",
-  },
-  {
-    name: "Diamante",
-    min: 3500,
-    max: 5999,
-    description: "Élite. Referente en su área. Top 10%.",
-    color: "#1a4ca3",
-    bg: "#eff4ff",
-    border: "#3b82f6",
-    glow: "rgba(26,76,163,0.35)",
-    image: "/medals/diamante.png",
-  },
-  {
-    name: "Maestro",
-    min: 6000,
-    max: 9999,
-    description: "Experto reconocido. Top 5%.",
-    color: "#7C3AED",
-    bg: "#f5f3ff",
-    border: "#8b5cf6",
-    glow: "rgba(124,58,237,0.35)",
-    image: "/medals/maestro.png",
-  },
-  {
-    name: "Challenger",
-    min: 10000,
-    max: null,
-    description: "Los mejores de la institución.",
-    color: "#057f78",
-    bg: "#effaf8",
-    border: "#10b981",
-    glow: "rgba(5,127,120,0.4)",
-    image: "/medals/challenger.png",
-  },
-];
-
-// ── Usuario actual (hardcoded) ───────────────────────────────────────────────
-const MY_POINTS = 2000;
-const MY_MEDAL = MEDALS.find(
-  (m) => MY_POINTS >= m.min && (m.max === null || MY_POINTS <= m.max),
-)!;
-const NEXT_MEDAL = MEDALS[MEDALS.indexOf(MY_MEDAL) + 1] ?? null;
-const PROGRESS = NEXT_MEDAL
-  ? ((MY_POINTS - MY_MEDAL.min) / (NEXT_MEDAL.min - MY_MEDAL.min)) * 100
-  : 100;
+import { useMedals, type Student, MedalInfo } from "../context/MedalsContext";
 
 // ── Ranking hardcoded ────────────────────────────────────────────────────────
 const STUDENTS: Student[] = [
@@ -287,8 +164,16 @@ function CircularProgress({
 
 // ── View principal ───────────────────────────────────────────────────────────
 const RankingView = () => {
-  const [filterMedal, setFilterMedal] = useState<Medal | "todos">("todos");
+  const { medals, getMedalByPoints, getNextMedal, calculateMedalProgress } =
+    useMedals();
+  const [filterMedal, setFilterMedal] = useState<string>("todos");
   const router = useRouter();
+
+  const MY_POINTS = 9000;
+  const MY_MEDAL = getMedalByPoints(MY_POINTS);
+  const NEXT_MEDAL = getNextMedal(MY_MEDAL);
+  const PROGRESS = calculateMedalProgress(MY_POINTS, MY_MEDAL);
+
   const filtered =
     filterMedal === "todos"
       ? STUDENTS
@@ -408,7 +293,7 @@ const RankingView = () => {
             Todas las medallas
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-7 gap-3">
-            {MEDALS.map((m) => {
+            {medals.map((m) => {
               const unlocked = MY_POINTS >= m.min;
               const isCurrent = m.name === MY_MEDAL.name;
               return (
@@ -481,7 +366,8 @@ const RankingView = () => {
               >
                 Todos
               </button>
-              {MEDALS.slice()
+              {medals
+                .slice()
                 .reverse()
                 .map((m) => (
                   <button
@@ -512,7 +398,7 @@ const RankingView = () => {
               </div>
             ) : (
               top10.map((student, i) => {
-                const medal = MEDALS.find((m) => m.name === student.medal)!;
+                const medal = medals.find((m) => m.name === student.medal)!;
                 const isTop3 = i < 3;
                 const podiumEmoji = ["🥇", "🥈", "🥉"][i] ?? null;
 

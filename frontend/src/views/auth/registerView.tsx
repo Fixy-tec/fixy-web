@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Eye, EyeOff, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/src/context/AuthContext";
 
 const TECSUP_REGEX = /^[a-zA-Z0-9._%+-]+@tecsup\.edu\.pe$/;
 
@@ -12,15 +13,20 @@ const RegisterView = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const router = useRouter();
+  const { register, isLoading } = useAuth();
   const [form, setForm] = useState({
+    name: "",
     email: "",
     password: "",
     confirmPassword: "",
   });
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [apiError, setApiError] = useState("");
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
+    if (form.name.trim().length < 3)
+      newErrors.name = "Ingresa tu nombre completo";
     if (!TECSUP_REGEX.test(form.email))
       newErrors.email = "Debe ser un correo @tecsup.edu.pe";
     if (form.password.length < 8) newErrors.password = "Mínimo 8 caracteres";
@@ -29,7 +35,7 @@ const RegisterView = () => {
     return newErrors;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors = validate();
     if (Object.keys(newErrors).length > 0) {
@@ -37,8 +43,18 @@ const RegisterView = () => {
       return;
     }
     setErrors({});
-    console.log(form);
-    router.push("/auth/on-boarding");
+    setApiError("");
+
+    try {
+      await register({
+        name: form.name,
+        email: form.email,
+        password: form.password,
+      });
+      router.replace("/auth/on-boarding");
+    } catch (error: any) {
+      setApiError(error.message || "Error al registrarse");
+    }
   };
 
   return (
@@ -77,6 +93,36 @@ const RegisterView = () => {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Error del API */}
+            {apiError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+                <p className="text-xs text-red-700">{apiError}</p>
+              </div>
+            )}
+
+            {/* Nombre completo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Nombre completo
+              </label>
+
+              <input
+                type="text"
+                placeholder="Ej. Gabriel Núñez Arenas"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className={`w-full px-4 py-2.5 rounded-lg border text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors ${
+                  errors.name
+                    ? "border-red-300 focus:ring-red-200 focus:border-red-400"
+                    : "border-gray-200 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3]"
+                }`}
+                required
+              />
+
+              {errors.name && (
+                <p className="text-xs text-red-500 mt-1">{errors.name}</p>
+              )}
+            </div>
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -177,10 +223,11 @@ const RegisterView = () => {
 
             <button
               type="submit"
-              className="w-full flex items-center justify-center gap-2 bg-[#1a4ca3] hover:bg-[#143d87] text-white font-semibold py-2.5 rounded-lg transition-colors text-sm mt-2"
+              disabled={isLoading}
+              className="w-full flex items-center justify-center gap-2 bg-[#1a4ca3] hover:bg-[#143d87] disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-lg transition-colors text-sm mt-2"
             >
               <UserPlus size={16} strokeWidth={2} />
-              Crear cuenta
+              {isLoading ? "Registrando..." : "Crear cuenta"}
             </button>
           </form>
 

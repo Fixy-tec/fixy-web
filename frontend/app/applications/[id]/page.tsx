@@ -1,11 +1,11 @@
-import SolicitudDetailView from "@/src/views/applications/solicitudDetailView";
 import NavBarComponent from "@/src/components/navBarComponent";
+import SolicitudDetailPageClient from "@/src/views/applications/solicitudDetailPageClient";
 
 const SolicitudDetailPage = () => {
   return (
     <>
       <NavBarComponent />
-      <SolicitudDetailView />
+      <SolicitudDetailPageClient />
     </>
   );
 };
