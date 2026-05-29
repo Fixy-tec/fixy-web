@@ -84,8 +84,14 @@ export async function updateApplication(req: Request, res: Response) {
     }
 
     const result = await applicationsService.updateApplication(id, { status, message });
+    
     return res.json(result);
   } catch (error: any) {
+    // Handle specific error for capacity
+    if (error.message.includes("reached the maximum number of participants")) {
+      return res.status(409).json({ message: error.message });
+    }
+
     return res.status(400).json({ message: error.message || "Failed to update application" });
   }
 }

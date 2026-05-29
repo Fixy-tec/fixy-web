@@ -52,7 +52,7 @@ export async function getApplicationById(id: string) {
     include: {
       request: { include: { creator: { include: { profile: true } } } },
       applicant: { include: { profile: true } },
-      rating: true,
+      ratings: true,
     },
   });
 }
@@ -95,4 +95,50 @@ export async function getApplicationByRequestAndApplicant(
       },
     },
   });
+}
+
+/**
+ * Obtener conteo de aplicaciones aceptadas para un request
+ */
+export async function getAcceptedApplicationsCount(requestId: string): Promise<number> {
+  return prisma.application.count({
+    where: {
+      requestId,
+      status: "ACEPTADA",
+    },
+  });
+}
+
+/**
+ * Obtener todas las aplicaciones aceptadas de un request
+ */
+export async function getAcceptedApplications(requestId: string) {
+  return prisma.application.findMany({
+    where: {
+      requestId,
+      status: "ACEPTADA",
+    },
+    include: {
+      request: { include: { creator: { include: { profile: true } } } },
+      applicant: { include: { profile: true } },
+      ratings: true,
+    },
+  });
+}
+
+/**
+ * Verificar si un request necesita más aplicantes
+ */
+export async function hasCapacityForMoreApplications(requestId: string): Promise<boolean> {
+  const request = await prisma.request.findUnique({
+    where: { id: requestId },
+    select: { participantsNeeded: true },
+  });
+
+  if (!request) {
+    throw new Error("Request not found");
+  }
+
+  const acceptedCount = await getAcceptedApplicationsCount(requestId);
+  return acceptedCount < request.participantsNeeded;
 }
