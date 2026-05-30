@@ -87,9 +87,25 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
     s.statusRaw !== "CANCELADA" &&
     s.statusRaw !== "COMPLETADA" &&
     !s.isExpired;
+  /**
+   * Editar solo tiene sentido cuando el trabajo aún NO arrancó. Una vez que
+   * el request pasa a EN_PROCESO (cupo lleno), COMPLETADA o CANCELADA, los
+   * postulantes aceptados ya están comprometidos con las reglas originales y
+   * cambiarlas a mitad de juego rompe expectativas.
+   */
+  const canEdit =
+    s.statusRaw === "ABIERTA" || s.statusRaw === "EN_REVISION";
   const isCompleted = s.status === "Completada";
   /** El cronómetro sólo tiene sentido cuando el trabajo arrancó */
   const isInProgress = s.statusRaw === "EN_PROCESO";
+
+  const editDisabledReason = canEdit
+    ? undefined
+    : isInProgress
+      ? "No puedes editar una solicitud que ya está en proceso"
+      : isCompleted
+        ? "No puedes editar una solicitud completada"
+        : "No puedes editar una solicitud cancelada";
 
   /** Postulantes aceptados a los que aún no he calificado */
   const pendingRatings = useMemo(
@@ -113,6 +129,7 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
   }, [isCompleted, pendingRatings]);
 
   const handleEdit = () => {
+    if (!canEdit) return;
     router.push(`/applications/${s.id}/editar`);
   };
 
@@ -505,8 +522,9 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
             <button
               type="button"
               onClick={handleEdit}
-              disabled={isDeleting}
-              className="flex items-center justify-center gap-2 bg-[#1a4ca3] hover:bg-[#143d87] text-white font-semibold py-3 rounded-xl text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled={isDeleting || !canEdit}
+              title={editDisabledReason}
+              className="flex items-center justify-center gap-2 bg-[#1a4ca3] hover:bg-[#143d87] text-white font-semibold py-3 rounded-xl text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#1a4ca3]"
             >
               <Pencil size={15} />
               Editar solicitud
@@ -525,6 +543,12 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
               Retirar solicitud
             </button>
           </div>
+
+          {!canEdit && editDisabledReason && (
+            <p className="mt-3 text-xs text-gray-400 text-center">
+              {editDisabledReason}.
+            </p>
+          )}
 
           {(localError || deleteError || extendError) &&
             !confirmDeleteOpen &&
