@@ -31,7 +31,7 @@ const difficultyColors = [
 
 const BuscarView = () => {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, isLoggingOut } = useAuth();
   const {
     exploreRequests,
     isLoadingExplore,
@@ -51,12 +51,13 @@ const BuscarView = () => {
 
   useEffect(() => {
     if (authLoading) return;
+    if (isLoggingOut) return; // logout en curso → AuthContext navega
     if (!isAuthenticated) {
       router.replace("/forbidden?from=/find");
       return;
     }
     void refreshExplore();
-  }, [authLoading, isAuthenticated, refreshExplore, router]);
+  }, [authLoading, isAuthenticated, isLoggingOut, refreshExplore, router]);
 
   const allTags = useMemo(
     () => [...catalogTags.map((t) => t.name)].sort((a, b) => a.localeCompare(b)),

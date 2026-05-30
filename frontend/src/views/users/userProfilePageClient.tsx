@@ -23,6 +23,7 @@ export default function UserProfilePageClient({ userId }: Props) {
     token,
     isAuthenticated,
     isLoading: authLoading,
+    isLoggingOut,
   } = useAuth();
   const {
     profileUser,
@@ -59,6 +60,9 @@ export default function UserProfilePageClient({ userId }: Props) {
 
   useEffect(() => {
     if (authLoading) return;
+    // Logout en progreso: no redirigimos a /forbidden, el AuthContext ya
+    // está navegando a /auth/login.
+    if (isLoggingOut) return;
     if (!isAuthenticated || !token) {
       router.replace(
         `/forbidden?from=${encodeURIComponent(`/users/${userId}`)}`,
@@ -72,6 +76,7 @@ export default function UserProfilePageClient({ userId }: Props) {
   }, [
     authLoading,
     isAuthenticated,
+    isLoggingOut,
     token,
     userId,
     router,

@@ -78,7 +78,7 @@ export default function CreateSolicitudView({
   requestId,
 }: CreateSolicitudViewProps = {}) {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, isLoggingOut } = useAuth();
   const { tags: catalogTags, isLoading: tagsLoading, error: tagsError } =
     useTags();
   const {
@@ -120,6 +120,7 @@ export default function CreateSolicitudView({
 
   useEffect(() => {
     if (authLoading) return;
+    if (isLoggingOut) return; // logout en curso → AuthContext navega
     if (!isAuthenticated) {
       const from =
         isEdit && requestId
@@ -127,7 +128,7 @@ export default function CreateSolicitudView({
           : "/applications/crear";
       router.replace(`/forbidden?from=${encodeURIComponent(from)}`);
     }
-  }, [authLoading, isAuthenticated, router, isEdit, requestId]);
+  }, [authLoading, isAuthenticated, isLoggingOut, router, isEdit, requestId]);
 
   // Para ASESORIA el backend fuerza participantes = 1, espejamos en UI
   useEffect(() => {

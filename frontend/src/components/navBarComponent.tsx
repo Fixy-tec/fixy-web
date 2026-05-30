@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { Power, User } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
 import NotificationBell from "@/src/components/notificationBell";
@@ -18,15 +18,15 @@ const navLinks = [
 export default function NavBarComponent() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const pathname = usePathname();
-  const router = useRouter();
   const { isAuthenticated, isLoading, user, logout } = useAuth();
 
   const isLoggedIn = !isLoading && isAuthenticated;
 
   const handleLogout = async () => {
     setIsMenuOpen(false);
+    // `logout()` se encarga de navegar a /auth/login internamente; navegar
+    // aquí además sería redundante y podría causar una doble navegación.
     await logout();
-    router.push("/auth/login");
   };
 
   return (

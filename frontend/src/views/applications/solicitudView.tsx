@@ -11,7 +11,7 @@ type Tab = "mis-solicitudes" | "mis-postulaciones";
 
 export default function ApplicationsView() {
   const router = useRouter();
-  const { isAuthenticated, isLoading: authLoading } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, isLoggingOut } = useAuth();
   const {
     myRequests,
     myApplications,
@@ -26,12 +26,13 @@ export default function ApplicationsView() {
 
   useEffect(() => {
     if (authLoading) return;
+    if (isLoggingOut) return; // logout en curso → AuthContext navega
     if (!isAuthenticated) {
       router.replace("/forbidden?from=/applications");
       return;
     }
     void refreshLists();
-  }, [authLoading, isAuthenticated, refreshLists, router]);
+  }, [authLoading, isAuthenticated, isLoggingOut, refreshLists, router]);
 
   const data = tab === "mis-solicitudes" ? myRequests : myApplications;
   const misSolicitudesActivas = myRequests.filter(

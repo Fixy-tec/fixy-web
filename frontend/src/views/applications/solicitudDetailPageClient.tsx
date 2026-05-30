@@ -11,7 +11,12 @@ import SolicitudDetailViewCreator from "@/src/views/applications/solicitudDetail
 export default function SolicitudDetailPageClient() {
   const params = useParams();
   const router = useRouter();
-  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
+  const {
+    user,
+    isAuthenticated,
+    isLoading: authLoading,
+    isLoggingOut,
+  } = useAuth();
   const {
     currentDetail,
     isLoadingDetail,
@@ -25,6 +30,7 @@ export default function SolicitudDetailPageClient() {
 
   useEffect(() => {
     if (authLoading) return;
+    if (isLoggingOut) return; // logout en curso → AuthContext navega
     if (!isAuthenticated) {
       const from = requestId
         ? `/applications/${requestId}`
@@ -39,6 +45,7 @@ export default function SolicitudDetailPageClient() {
   }, [
     authLoading,
     isAuthenticated,
+    isLoggingOut,
     requestId,
     loadRequestDetail,
     clearRequestDetail,
