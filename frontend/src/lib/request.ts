@@ -189,6 +189,15 @@ export interface RequestCreatorDto {
   profile?: { avatarUrl: string | null; avgRating?: number } | null;
 }
 
+export interface ApplicationRatingDto {
+  id: string;
+  raterId: string;
+  ratedId: string;
+  stars: number;
+  comment: string | null;
+  createdAt: string;
+}
+
 export interface RequestApplicationDto {
   id: string;
   message: string;
@@ -197,8 +206,11 @@ export interface RequestApplicationDto {
   applicant?: {
     id: string;
     name: string;
-    profile?: { avatarUrl: string | null } | null;
+    medal?: string;
+    points?: number;
+    profile?: { avatarUrl: string | null; avgRating?: number } | null;
   };
+  ratings?: ApplicationRatingDto[];
 }
 
 /** Request con relaciones que devuelve el listado/detalle del API */
@@ -415,4 +427,33 @@ export async function deleteRequest(token: string, id: string): Promise<void> {
   if (!response.ok) {
     await parseError(response, "Error al eliminar la solicitud");
   }
+}
+
+/**
+ * POST `/requests/:id/extend-deadline`
+ * Aplaza el deadline de una solicitud. El backend valida ownership y que la
+ * nueva fecha sea posterior al deadline actual.
+ */
+export async function extendRequestDeadline(
+  token: string,
+  id: string,
+  newDeadline: string,
+): Promise<RequestWithRelations> {
+  const iso = toIsoDeadline(newDeadline);
+  if (!iso) {
+    throw new Error("Fecha inválida");
+  }
+
+  const response = await fetch(`${API_BASE}/requests/${id}/extend-deadline`, {
+    method: "POST",
+    headers: authHeaders(token),
+    body: JSON.stringify({ deadline: iso }),
+  });
+
+  if (!response.ok) {
+    await parseError(response, "Error al aplazar la solicitud");
+  }
+
+  const data = (await response.json()) as RequestDetailResponse;
+  return data.request;
 }

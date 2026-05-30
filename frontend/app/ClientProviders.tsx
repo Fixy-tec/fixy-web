@@ -5,6 +5,7 @@ import { MedalsProvider } from "@/src/context/MedalsContext";
 import { TagProvider } from "@/src/context/TagContext";
 import { UserProfileProvider } from "@/src/context/UserProfileContext";
 import { RequestProvider } from "@/src/context/RequestContext";
+import { RankingProvider } from "@/src/context/RankingContext";
 
 export function ClientProviders({ children }: { children: React.ReactNode }) {
   return (
@@ -12,7 +13,9 @@ export function ClientProviders({ children }: { children: React.ReactNode }) {
       <TagProvider>
         <UserProfileProvider>
           <RequestProvider>
-            <MedalsProvider>{children}</MedalsProvider>
+            <RankingProvider>
+              <MedalsProvider>{children}</MedalsProvider>
+            </RankingProvider>
           </RequestProvider>
         </UserProfileProvider>
       </TagProvider>

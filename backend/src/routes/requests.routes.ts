@@ -5,6 +5,7 @@ import {
   getRequestById,
   updateRequest,
   deleteRequest,
+  extendDeadline,
 } from "../modules/requests/controllers/request.controller";
 import { authenticateJWT } from "../middlewares/auth.middleware";
 
@@ -18,5 +19,6 @@ router.get("/:id", getRequestById);
 router.post("/", authenticateJWT, createRequest);
 router.patch("/:id", authenticateJWT, updateRequest);
 router.delete("/:id", authenticateJWT, deleteRequest);
+router.post("/:id/extend-deadline", authenticateJWT, extendDeadline);
 
 export default router;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BookOpen,
@@ -18,10 +18,17 @@ import {
   Trash2,
   Loader2,
   AlertTriangle,
+  CalendarPlus,
+  Star,
 } from "lucide-react";
 
 import { useRequest } from "@/src/context/RequestContext";
-import type { SolicitudDetailData } from "@/src/lib/solicitudMappers";
+import CountdownTimer from "@/src/components/countdownTimer";
+import RatingModal from "@/src/components/modals/ratingModal";
+import type {
+  PostulanteDetalle,
+  SolicitudDetailData,
+} from "@/src/lib/solicitudMappers";
 
 const statusStyle: Record<string, string> = {
   Abierta: "bg-emerald-50 text-emerald-700 border-emerald-100",
@@ -39,24 +46,71 @@ const difficultyLabel = [
   "Muy difícil",
 ];
 
-const difficultyPoints = [0, 50, 100, 180, 280, 400];
-
-const durationDays = (inicio: string, fin: string) =>
-  Math.ceil(
-    (new Date(fin).getTime() - new Date(inicio).getTime()) /
-      (1000 * 60 * 60 * 24),
-  );
-
 interface Props {
   solicitud: SolicitudDetailData;
 }
 
 export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
   const router = useRouter();
-  const { deleteSolicitud, isDeleting, deleteError } = useRequest();
-  const [confirmOpen, setConfirmOpen] = useState(false);
+  const {
+    deleteSolicitud,
+    isDeleting,
+    deleteError,
+    extenderDeadline,
+    isExtending,
+    extendError,
+    aceptarPostulante,
+    rechazarPostulante,
+    isUpdatingApplication,
+    applicationActionError,
+    calificarPostulante,
+    isRating,
+    ratingError,
+  } = useRequest();
+
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [extendOpen, setExtendOpen] = useState(false);
+  const [newDeadline, setNewDeadline] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
-  const dias = durationDays(s.fechaPublicacion, s.fechaLimite);
+  const [rateTarget, setRateTarget] = useState<PostulanteDetalle | null>(null);
+
+  /** Postulantes aceptados (para mostrar arriba y calcular cupos) */
+  const acceptedApps = useMemo(
+    () => s.postulantesDetalle.filter((p) => p.status === "ACEPTADA"),
+    [s.postulantesDetalle],
+  );
+  const cuposRestantes = Math.max(0, s.participantes - acceptedApps.length);
+
+  const canManagePostulants =
+    s.statusRaw === "ABIERTA" || s.statusRaw === "EN_REVISION";
+  const canExtend =
+    s.statusRaw !== "CANCELADA" &&
+    s.statusRaw !== "COMPLETADA" &&
+    !s.isExpired;
+  const isCompleted = s.status === "Completada";
+  /** El cronómetro sólo tiene sentido cuando el trabajo arrancó */
+  const isInProgress = s.statusRaw === "EN_PROCESO";
+
+  /** Postulantes aceptados a los que aún no he calificado */
+  const pendingRatings = useMemo(
+    () => acceptedApps.filter((p) => !p.ratedByCurrentUser),
+    [acceptedApps],
+  );
+
+  /**
+   * Auto-popup: cuando el request se completa y todavía me quedan postulantes
+   * por calificar, abrimos el modal del primero. Usamos un ref para no
+   * reabrirlo tras cerrarlo manualmente — el usuario tiene además el botón
+   * "Calificar" en cada postulante.
+   */
+  const autoOpenedRatingRef = useRef(false);
+  useEffect(() => {
+    if (autoOpenedRatingRef.current) return;
+    if (!isCompleted) return;
+    if (pendingRatings.length === 0) return;
+    setRateTarget(pendingRatings[0]);
+    autoOpenedRatingRef.current = true;
+  }, [isCompleted, pendingRatings]);
 
   const handleEdit = () => {
     router.push(`/applications/${s.id}/editar`);
@@ -73,6 +127,49 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
       );
     }
   };
+
+  const handleExtend = async () => {
+    setLocalError(null);
+    if (!newDeadline) {
+      setLocalError("Selecciona una nueva fecha");
+      return;
+    }
+    try {
+      await extenderDeadline(s.id, newDeadline);
+      setExtendOpen(false);
+      setNewDeadline("");
+    } catch (e) {
+      setLocalError(
+        e instanceof Error ? e.message : "No se pudo aplazar",
+      );
+    }
+  };
+
+  const handleAceptar = async (applicationId: string) => {
+    try {
+      await aceptarPostulante(applicationId);
+    } catch {
+      /* el error vive en applicationActionError */
+    }
+  };
+
+  const handleRechazar = async (applicationId: string) => {
+    try {
+      await rechazarPostulante(applicationId);
+    } catch {
+      /* el error vive en applicationActionError */
+    }
+  };
+
+  const handleSubmitRating = async (stars: number, comment?: string) => {
+    if (!rateTarget) return;
+    await calificarPostulante(rateTarget.applicationId, stars, comment);
+    setRateTarget(null);
+  };
+
+  const todayIso = new Date().toISOString().split("T")[0];
+  // El mínimo para "aplazar" es como mínimo un día después del deadline actual
+  const currentDeadlineDate = s.deadlineIso ? s.deadlineIso.split("T")[0] : todayIso;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -162,9 +259,11 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
             </div>
 
             <div className="bg-gray-50 rounded-xl p-3 text-center">
-              <Clock size={16} className="mx-auto mb-1 text-gray-400" />
-              <p className="text-xs text-gray-400 mb-0.5">Duración</p>
-              <p className="text-sm font-semibold text-gray-700">{dias} días</p>
+              <Check size={16} className="mx-auto mb-1 text-[#057f78]" />
+              <p className="text-xs text-gray-400 mb-0.5">Aceptados</p>
+              <p className="text-sm font-semibold text-gray-700">
+                {acceptedApps.length} / {s.participantes}
+              </p>
             </div>
 
             <div className="bg-gray-50 rounded-xl p-3 text-center">
@@ -176,8 +275,49 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
             </div>
           </div>
 
+          {/* Cronómetro: sólo activo cuando el cupo ya se llenó y el trabajo arrancó */}
+          <div className="mb-6">
+            {isInProgress ? (
+              <CountdownTimer
+                deadline={s.deadlineIso}
+                startedAt={s.createdAtIso}
+                showElapsed
+              />
+            ) : isCompleted ? (
+              <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-blue-700">
+                <p className="text-xs font-semibold uppercase tracking-wide mb-1">
+                  Solicitud completada
+                </p>
+                <p className="text-sm">
+                  El plazo terminó. Califica a los participantes para cerrar el
+                  ciclo y otorgar puntos.
+                </p>
+              </div>
+            ) : s.statusRaw === "CANCELADA" ? (
+              <div className="rounded-xl border border-rose-100 bg-rose-50 px-4 py-3 text-rose-700">
+                <p className="text-sm">
+                  Esta solicitud fue cancelada (vencida sin completar el cupo).
+                </p>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-gray-600">
+                <p className="text-xs font-semibold uppercase tracking-wide mb-1 text-gray-500">
+                  Cronómetro en pausa
+                </p>
+                <p className="text-sm">
+                  El cronómetro se activará cuando aceptes a{" "}
+                  <span className="font-medium text-gray-700">
+                    {s.participantes} postulante
+                    {s.participantes !== 1 ? "s" : ""}
+                  </span>{" "}
+                  y la solicitud pase a estado "En proceso".
+                </p>
+              </div>
+            )}
+          </div>
+
           {/* Fechas */}
-          <div className="flex items-center gap-4 text-xs text-gray-400 border-t border-gray-50 pt-4">
+          <div className="flex items-center gap-4 text-xs text-gray-400 border-t border-gray-50 pt-4 flex-wrap">
             <span className="flex items-center gap-1">
               <Calendar size={12} />
               Publicado:{" "}
@@ -193,39 +333,151 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
 
         {/* Lista postulantes */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Users size={15} style={{ color: "#1a4ca3" }} />
-            <h2 className="text-sm font-semibold text-gray-700">Postulantes</h2>
+          <div className="flex items-center justify-between gap-2 mb-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Users size={15} style={{ color: "#1a4ca3" }} />
+              <h2 className="text-sm font-semibold text-gray-700">
+                Postulantes ({s.postulantes})
+              </h2>
+            </div>
+            {canManagePostulants && cuposRestantes > 0 && (
+              <span className="text-xs text-gray-500">
+                Te quedan{" "}
+                <span className="font-semibold text-[#057f78]">
+                  {cuposRestantes}
+                </span>{" "}
+                cupo{cuposRestantes !== 1 ? "s" : ""} por aceptar
+              </span>
+            )}
           </div>
 
-          <div className="space-y-4">
+          {applicationActionError && (
+            <p className="text-xs text-red-600 mb-3">
+              {applicationActionError}
+            </p>
+          )}
+
+          <div className="space-y-3">
             {s.postulantesDetalle.length === 0 ? (
               <p className="text-xs text-gray-400 text-center py-4">
                 Aún no hay postulantes.
               </p>
             ) : (
               s.postulantesDetalle.map((p) => (
-              <div key={p.id} className="border border-gray-100 rounded-xl p-4">
-                <p className="text-sm font-semibold text-gray-800 mb-1">
-                  {p.nombre}
-                </p>
-
-                <p className="text-xs text-gray-500 leading-relaxed mb-4">
-                  {p.mensaje}
-                </p>
-
-                <div className="flex gap-2">
-                  <button className="flex items-center gap-1.5 bg-[#057f78] hover:bg-[#046860] text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors">
-                    <Check size={13} />
-                    Aceptar
+                <div
+                  key={p.applicationId}
+                  className="border border-gray-100 rounded-xl p-4"
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      p.applicantId && router.push(`/users/${p.applicantId}`)
+                    }
+                    disabled={!p.applicantId}
+                    className="flex items-start gap-3 mb-3 text-left hover:opacity-80 transition-opacity w-full disabled:cursor-default"
+                  >
+                    <div
+                      className="w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm shrink-0 bg-cover bg-center"
+                      style={{
+                        background: p.avatarUrl
+                          ? `url(${p.avatarUrl}) center/cover`
+                          : "#1a4ca3",
+                      }}
+                    >
+                      {!p.avatarUrl && p.nombre.charAt(0)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap mb-0.5">
+                        <p className="text-sm font-semibold text-gray-800">
+                          {p.nombre}
+                        </p>
+                        <span
+                          className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${
+                            p.status === "ACEPTADA"
+                              ? "bg-emerald-50 text-emerald-700 border-emerald-100"
+                              : p.status === "RECHAZADA"
+                                ? "bg-rose-50 text-rose-600 border-rose-100"
+                                : "bg-amber-50 text-amber-700 border-amber-200"
+                          }`}
+                        >
+                          {p.statusLabel}
+                        </span>
+                      </div>
+                      {(p.medalla || p.rating != null) && (
+                        <div className="flex items-center gap-2 text-[11px] text-gray-400">
+                          {p.rating != null && p.rating > 0 && (
+                            <span>⭐ {p.rating}</span>
+                          )}
+                          {p.medalla && (
+                            <span
+                              className="font-medium"
+                              style={{ color: "#057f78" }}
+                            >
+                              {p.medalla}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
                   </button>
 
-                  <button className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-medium px-3 py-2 rounded-lg transition-colors">
-                    <X size={13} />
-                    Rechazar
-                  </button>
+                  <p className="text-xs text-gray-500 leading-relaxed mb-4">
+                    {p.mensaje}
+                  </p>
+
+                  {/* Acciones según estado */}
+                  {p.status === "PENDIENTE" && canManagePostulants && (
+                    <div className="flex gap-2 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => handleAceptar(p.applicationId)}
+                        disabled={isUpdatingApplication || cuposRestantes <= 0}
+                        title={
+                          cuposRestantes <= 0
+                            ? "Ya alcanzaste el cupo máximo"
+                            : undefined
+                        }
+                        className="flex items-center gap-1.5 bg-[#057f78] hover:bg-[#046860] text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {isUpdatingApplication ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : (
+                          <Check size={13} />
+                        )}
+                        Aceptar
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleRechazar(p.applicationId)}
+                        disabled={isUpdatingApplication}
+                        className="flex items-center gap-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <X size={13} />
+                        Rechazar
+                      </button>
+                    </div>
+                  )}
+
+                  {/* Calificar (solo cuando el request ya está completado y la app fue aceptada) */}
+                  {p.status === "ACEPTADA" &&
+                    isCompleted &&
+                    (p.ratedByCurrentUser ? (
+                      <span className="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-50 text-xs font-semibold px-3 py-2 rounded-lg">
+                        <Check size={13} />
+                        Calificado
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setRateTarget(p)}
+                        className="flex items-center gap-1.5 bg-amber-50 hover:bg-amber-100 text-amber-700 text-xs font-semibold px-3 py-2 rounded-lg transition-colors"
+                      >
+                        <Star size={13} />
+                        Calificar
+                      </button>
+                    ))}
                 </div>
-              </div>
               ))
             )}
           </div>
@@ -233,6 +485,22 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
 
         {/* Actions */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          {canExtend && (
+            <button
+              type="button"
+              onClick={() => {
+                setLocalError(null);
+                setNewDeadline("");
+                setExtendOpen(true);
+              }}
+              disabled={isDeleting || isExtending}
+              className="w-full flex items-center justify-center gap-2 bg-amber-50 hover:bg-amber-100 text-amber-700 font-semibold py-3 rounded-xl text-sm transition-colors mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <CalendarPlus size={15} />
+              Aplazar fecha límite
+            </button>
+          )}
+
           <div className="grid grid-cols-2 gap-3">
             <button
               type="button"
@@ -248,7 +516,7 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
               type="button"
               onClick={() => {
                 setLocalError(null);
-                setConfirmOpen(true);
+                setConfirmDeleteOpen(true);
               }}
               disabled={isDeleting}
               className="flex items-center justify-center gap-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold py-3 rounded-xl text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -258,16 +526,18 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
             </button>
           </div>
 
-          {(localError || deleteError) && !confirmOpen && (
-            <p className="mt-3 text-xs text-red-600">
-              {localError ?? deleteError}
-            </p>
-          )}
+          {(localError || deleteError || extendError) &&
+            !confirmDeleteOpen &&
+            !extendOpen && (
+              <p className="mt-3 text-xs text-red-600">
+                {localError ?? deleteError ?? extendError}
+              </p>
+            )}
         </div>
       </div>
 
-      {/* Modal de confirmación */}
-      {confirmOpen && (
+      {/* Modal de confirmación de eliminación */}
+      {confirmDeleteOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-sm p-6">
             <div className="flex items-start gap-3 mb-4">
@@ -293,7 +563,7 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
             <div className="flex items-center justify-end gap-2">
               <button
                 type="button"
-                onClick={() => setConfirmOpen(false)}
+                onClick={() => setConfirmDeleteOpen(false)}
                 disabled={isDeleting}
                 className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
@@ -316,6 +586,82 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
           </div>
         </div>
       )}
+
+      {/* Modal de aplazar deadline */}
+      {extendOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-sm p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                <CalendarPlus size={18} className="text-amber-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-800 mb-1">
+                  Aplazar fecha límite
+                </h3>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  La nueva fecha debe ser posterior al deadline actual (
+                  {new Date(s.fechaLimite).toLocaleDateString("es-PE")}).
+                </p>
+              </div>
+            </div>
+
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+              Nueva fecha límite
+            </label>
+            <input
+              type="date"
+              value={newDeadline}
+              min={currentDeadlineDate}
+              onChange={(e) => setNewDeadline(e.target.value)}
+              disabled={isExtending}
+              className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-amber-300 focus:border-amber-400 transition-colors mb-3 disabled:opacity-50"
+            />
+
+            {(localError || extendError) && (
+              <p className="text-xs text-red-600 mb-3">
+                {localError ?? extendError}
+              </p>
+            )}
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setExtendOpen(false)}
+                disabled={isExtending}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleExtend}
+                disabled={isExtending || !newDeadline}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isExtending ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <CalendarPlus size={14} />
+                )}
+                {isExtending ? "Aplazando…" : "Aplazar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de calificación a postulante */}
+      <RatingModal
+        open={rateTarget != null}
+        title="Califica al postulante"
+        subtitle="¿Cómo fue colaborar con"
+        targetName={rateTarget ? `${rateTarget.nombre}?` : undefined}
+        onClose={() => setRateTarget(null)}
+        onSubmit={handleSubmitRating}
+        isSubmitting={isRating}
+        externalError={ratingError}
+      />
     </div>
   );
 }

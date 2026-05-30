@@ -8,11 +8,22 @@ import React, {
   useState,
 } from "react";
 import { useAuth } from "@/src/context/AuthContext";
-import { fetchApplicationsByApplicant } from "@/src/lib/application";
+import {
+  createApplication,
+  deleteApplication,
+  fetchApplicationsByApplicant,
+  updateApplicationStatus,
+  type ApplicationStatusApi,
+} from "@/src/lib/application";
+import {
+  createApplicantRating,
+  createCreatorRating,
+} from "@/src/lib/rating";
 import { isHttpError } from "@/src/lib/httpError";
 import {
   createRequest,
   deleteRequest,
+  extendRequestDeadline,
   fetchRequestById,
   fetchRequests,
   fetchRequestsByCreator,
@@ -45,6 +56,7 @@ export type {
   RequestDto,
   UpdateRequestPayload,
 } from "@/src/lib/request";
+export type { ApplicationStatusApi } from "@/src/lib/application";
 
 export {
   DIFFICULTY_BASE_POINTS,
@@ -79,6 +91,34 @@ interface RequestContextValue {
   isDeleting: boolean;
   deleteError: string | null;
   deleteSolicitud: (id: string) => Promise<void>;
+  /** Aplaza la fecha límite de un request (solo el dueño) */
+  isExtending: boolean;
+  extendError: string | null;
+  extenderDeadline: (id: string, newDeadline: string) => Promise<SolicitudDetailData>;
+  /** Postular a un request con un mensaje */
+  isApplying: boolean;
+  applyError: string | null;
+  postular: (requestId: string, message: string) => Promise<void>;
+  /** Aceptar / rechazar postulantes (solo el dueño) */
+  isUpdatingApplication: boolean;
+  applicationActionError: string | null;
+  aceptarPostulante: (applicationId: string) => Promise<void>;
+  rechazarPostulante: (applicationId: string) => Promise<void>;
+  /** Retirar mi propia postulación */
+  retirarPostulacion: (applicationId: string) => Promise<void>;
+  /** Calificar al postulante (creador) o al creador (postulante) */
+  isRating: boolean;
+  ratingError: string | null;
+  calificarPostulante: (
+    applicationId: string,
+    stars: number,
+    comment?: string,
+  ) => Promise<void>;
+  calificarCreador: (
+    applicationId: string,
+    stars: number,
+    comment?: string,
+  ) => Promise<void>;
   myRequests: Solicitud[];
   myApplications: Solicitud[];
   isLoadingLists: boolean;
@@ -115,6 +155,16 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [isExtending, setIsExtending] = useState(false);
+  const [extendError, setExtendError] = useState<string | null>(null);
+  const [isApplying, setIsApplying] = useState(false);
+  const [applyError, setApplyError] = useState<string | null>(null);
+  const [isUpdatingApplication, setIsUpdatingApplication] = useState(false);
+  const [applicationActionError, setApplicationActionError] = useState<
+    string | null
+  >(null);
+  const [isRating, setIsRating] = useState(false);
+  const [ratingError, setRatingError] = useState<string | null>(null);
 
   const [myRequests, setMyRequests] = useState<Solicitud[]>([]);
   const [myApplications, setMyApplications] = useState<Solicitud[]>([]);
@@ -374,6 +424,177 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
     [token, isAuthenticated, refreshLists],
   );
 
+  /** Recarga el detalle actual (si hay uno cargado) y refresca las listas. */
+  const reloadCurrentDetail = useCallback(async () => {
+    const currentId = currentDetail?.id;
+    if (!currentId) {
+      await refreshLists();
+      return;
+    }
+    try {
+      const fresh = await fetchRequestById(currentId);
+      const detail = requestToDetail(fresh, { currentUserId: user?.id });
+      setCurrentDetail(detail);
+    } catch {
+      // si falla la recarga del detalle no rompemos la acción principal
+    }
+    await refreshLists();
+  }, [currentDetail?.id, refreshLists, user?.id]);
+
+  const extenderDeadline = useCallback(
+    async (id: string, newDeadline: string) => {
+      if (!token || !isAuthenticated) {
+        throw new Error("Debes iniciar sesión");
+      }
+
+      setIsExtending(true);
+      setExtendError(null);
+      try {
+        const updated = await extendRequestDeadline(token, id, newDeadline);
+        const detail = requestToDetail(updated, { currentUserId: user?.id });
+        setCurrentDetail(detail);
+        await refreshLists();
+        return detail;
+      } catch (e) {
+        const message =
+          e instanceof Error ? e.message : "Error al aplazar la solicitud";
+        setExtendError(message);
+        throw e;
+      } finally {
+        setIsExtending(false);
+      }
+    },
+    [token, isAuthenticated, refreshLists, user?.id],
+  );
+
+  const postular = useCallback(
+    async (requestId: string, message: string) => {
+      if (!token || !isAuthenticated) {
+        throw new Error("Debes iniciar sesión para postular");
+      }
+
+      const trimmed = message.trim();
+      if (trimmed.length === 0) {
+        throw new Error("El mensaje no puede estar vacío");
+      }
+
+      setIsApplying(true);
+      setApplyError(null);
+      try {
+        await createApplication(token, requestId, trimmed);
+        await reloadCurrentDetail();
+      } catch (e) {
+        const msg =
+          e instanceof Error ? e.message : "Error al postular";
+        setApplyError(msg);
+        throw e;
+      } finally {
+        setIsApplying(false);
+      }
+    },
+    [token, isAuthenticated, reloadCurrentDetail],
+  );
+
+  const changeApplicationStatus = useCallback(
+    async (applicationId: string, status: ApplicationStatusApi) => {
+      if (!token || !isAuthenticated) {
+        throw new Error("Debes iniciar sesión");
+      }
+      setIsUpdatingApplication(true);
+      setApplicationActionError(null);
+      try {
+        await updateApplicationStatus(token, applicationId, status);
+        await reloadCurrentDetail();
+      } catch (e) {
+        const msg =
+          e instanceof Error ? e.message : "Error al actualizar la postulación";
+        setApplicationActionError(msg);
+        throw e;
+      } finally {
+        setIsUpdatingApplication(false);
+      }
+    },
+    [token, isAuthenticated, reloadCurrentDetail],
+  );
+
+  const aceptarPostulante = useCallback(
+    (applicationId: string) =>
+      changeApplicationStatus(applicationId, "ACEPTADA"),
+    [changeApplicationStatus],
+  );
+
+  const rechazarPostulante = useCallback(
+    (applicationId: string) =>
+      changeApplicationStatus(applicationId, "RECHAZADA"),
+    [changeApplicationStatus],
+  );
+
+  const retirarPostulacion = useCallback(
+    async (applicationId: string) => {
+      if (!token || !isAuthenticated) {
+        throw new Error("Debes iniciar sesión");
+      }
+      setIsUpdatingApplication(true);
+      setApplicationActionError(null);
+      try {
+        await deleteApplication(token, applicationId);
+        await reloadCurrentDetail();
+      } catch (e) {
+        const msg =
+          e instanceof Error ? e.message : "Error al retirar la postulación";
+        setApplicationActionError(msg);
+        throw e;
+      } finally {
+        setIsUpdatingApplication(false);
+      }
+    },
+    [token, isAuthenticated, reloadCurrentDetail],
+  );
+
+  const calificarPostulante = useCallback(
+    async (applicationId: string, stars: number, comment?: string) => {
+      if (!token || !isAuthenticated) {
+        throw new Error("Debes iniciar sesión");
+      }
+      setIsRating(true);
+      setRatingError(null);
+      try {
+        await createCreatorRating(token, { applicationId, stars, comment });
+        await reloadCurrentDetail();
+      } catch (e) {
+        const msg =
+          e instanceof Error ? e.message : "Error al calificar";
+        setRatingError(msg);
+        throw e;
+      } finally {
+        setIsRating(false);
+      }
+    },
+    [token, isAuthenticated, reloadCurrentDetail],
+  );
+
+  const calificarCreador = useCallback(
+    async (applicationId: string, stars: number, comment?: string) => {
+      if (!token || !isAuthenticated) {
+        throw new Error("Debes iniciar sesión");
+      }
+      setIsRating(true);
+      setRatingError(null);
+      try {
+        await createApplicantRating(token, { applicationId, stars, comment });
+        await reloadCurrentDetail();
+      } catch (e) {
+        const msg =
+          e instanceof Error ? e.message : "Error al calificar";
+        setRatingError(msg);
+        throw e;
+      } finally {
+        setIsRating(false);
+      }
+    },
+    [token, isAuthenticated, reloadCurrentDetail],
+  );
+
   const value = useMemo(
     () => ({
       isCreating,
@@ -385,6 +606,21 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
       isDeleting,
       deleteError,
       deleteSolicitud,
+      isExtending,
+      extendError,
+      extenderDeadline,
+      isApplying,
+      applyError,
+      postular,
+      isUpdatingApplication,
+      applicationActionError,
+      aceptarPostulante,
+      rechazarPostulante,
+      retirarPostulacion,
+      isRating,
+      ratingError,
+      calificarPostulante,
+      calificarCreador,
       myRequests,
       myApplications,
       isLoadingLists,
@@ -418,6 +654,21 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
       isDeleting,
       deleteError,
       deleteSolicitud,
+      isExtending,
+      extendError,
+      extenderDeadline,
+      isApplying,
+      applyError,
+      postular,
+      isUpdatingApplication,
+      applicationActionError,
+      aceptarPostulante,
+      rechazarPostulante,
+      retirarPostulacion,
+      isRating,
+      ratingError,
+      calificarPostulante,
+      calificarCreador,
       myRequests,
       myApplications,
       isLoadingLists,

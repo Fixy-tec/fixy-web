@@ -155,3 +155,41 @@ export async function deleteRequest(req: Request, res: Response) {
     return res.status(400).json({ message: error.message || "Failed to delete request" });
   }
 }
+
+/**
+ * POST /requests/:id/extend-deadline
+ * Body: { deadline: ISO string }
+ * Sólo el dueño puede aplazar. Valida que newDeadline > current.
+ */
+export async function extendDeadline(req: Request, res: Response) {
+  try {
+    const authReq = req as AuthRequest;
+    const userId = authReq.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const { id } = req.params;
+    const { deadline } = req.body as { deadline?: string };
+
+    if (!deadline || typeof deadline !== "string") {
+      return res.status(400).json({ message: "El campo 'deadline' es obligatorio" });
+    }
+
+    const parsed = new Date(deadline);
+    if (Number.isNaN(parsed.getTime())) {
+      return res.status(400).json({ message: "Fecha inválida" });
+    }
+
+    // Verify ownership
+    const request = await requestsService.getRequestById(id);
+    if (request.creatorId !== userId) {
+      return res.status(403).json({ message: "You can only update your own requests" });
+    }
+
+    const updated = await requestsService.extendDeadline(id, parsed);
+    return res.json({ request: updated });
+  } catch (error: any) {
+    return res.status(400).json({ message: error.message || "Failed to extend deadline" });
+  }
+}

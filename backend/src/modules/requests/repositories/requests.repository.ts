@@ -81,7 +81,12 @@ export async function getRequestById(id: string) {
       creator: { include: { profile: true } },
       tags: { include: { tag: true } },
       applications: {
-        include: { applicant: { include: { profile: true } } },
+        // `ratings: true` permite al frontend saber quién ya calificó a quién
+        // (raterId === currentUserId) sin hacer un round-trip extra.
+        include: {
+          applicant: { include: { profile: true } },
+          ratings: true,
+        },
       },
     },
   });

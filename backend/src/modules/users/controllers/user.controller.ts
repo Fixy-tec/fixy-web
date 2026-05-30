@@ -93,10 +93,58 @@ export async function getUsers(_req: Request, res: Response) {
   return res.json({ users });
 }
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function getUserById(req: Request, res: Response) {
-  const user = await userService.getUserById(req.params.id);
-  if (!user) {
-    return res.status(404).json({ message: "User not found" });
+  const id = req.params.id;
+  // Guarda: si el `id` no parece UUID es casi seguro que la ruta dinámica
+  // está capturando algo que debería ser una sub-ruta (ej: `/users/ranking`
+  // si el orden de rutas se rompió). Devolvemos 400 para fallar rápido en
+  // vez de un `404 User not found` confuso.
+  if (!UUID_REGEX.test(id)) {
+    return res
+      .status(400)
+      .json({ message: `Invalid user id: '${id}' is not a UUID` });
   }
-  return res.json({ user });
+  try {
+    const user = await userService.getUserById(id);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    return res.json({ user });
+  } catch (error: any) {
+    console.error("[GET /users/:id] error:", error);
+    return res
+      .status(500)
+      .json({ message: error?.message ?? "Failed to load user" });
+  }
+}
+
+/**
+ * GET /users/ranking
+ * Query: ?limit=50&medal=ORO
+ * Devuelve el top global (o por medalla) de usuarios activos ordenados por
+ * puntos. Cada entrada incluye `rank` (posición), `points`, `medal`,
+ * `completedRequests` y datos de `profile` para mostrar avatar/carrera.
+ */
+export async function getRanking(req: Request, res: Response) {
+  try {
+    const limitRaw = req.query.limit;
+    const medalRaw = req.query.medal;
+
+    const limit =
+      typeof limitRaw === "string" && !Number.isNaN(Number(limitRaw))
+        ? Number(limitRaw)
+        : undefined;
+    const medal = typeof medalRaw === "string" ? medalRaw : undefined;
+
+    const ranking = await userService.getUsersRanking({ limit, medal });
+    return res.json({ ranking });
+  } catch (error: any) {
+    console.error("[GET /users/ranking] error:", error);
+    return res
+      .status(500)
+      .json({ message: error?.message ?? "Failed to load ranking" });
+  }
 }

@@ -37,12 +37,14 @@ export async function createApplication(input: CreateApplicationInput) {
     throw new Error("You cannot apply to your own request");
   }
 
-  // Validate 2: Only allow applications to ABIERTA requests
+  // Validate 2: Only allow applications when the request is still open
+  // (ABIERTA o EN_REVISION). Cuando el creador acepta los aceptados que
+  // necesita, el estado pasa a EN_PROCESO y las nuevas postulaciones se cierran
+  // automáticamente sin importar cuántos postulantes haya.
   if (
     request.status !== "ABIERTA" &&
     request.status !== "EN_REVISION"
-  ) 
-  {
+  ) {
     throw new Error("Applications are only accepted for open requests");
   }
 
@@ -56,12 +58,9 @@ export async function createApplication(input: CreateApplicationInput) {
     throw new Error("You have already applied to this request");
   }
 
-  // Validate 3: Check capacity (don't exceed participantsNeeded)
-  const acceptedCount = await applicationsRepository.getAcceptedApplicationsCount(input.requestId);
-  if (acceptedCount >= request.participantsNeeded) {
-    throw new Error("This request has reached the maximum number of participants");
-  }
-
+  // NOTA: NO bloqueamos por cantidad de postulantes. El cupo
+  // (`participantsNeeded`) solo limita cuántos puede ACEPTAR el creador, no
+  // cuántos pueden postularse. Esto permite mantener una bolsa de candidatos.
   return applicationsRepository.createApplication(input);
 }
 

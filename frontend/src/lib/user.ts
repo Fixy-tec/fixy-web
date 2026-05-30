@@ -48,6 +48,28 @@ export interface UserTagDto {
 
 export interface UserStatsDto {
   completedRequests: number;
+  /** Posición global del usuario (1-indexada). 0 si no aplica/inactivo. */
+  rank?: number;
+}
+
+/** Entrada cruda del endpoint `GET /users/ranking`. */
+export interface RankingEntryDto {
+  id: string;
+  name: string;
+  points: number;
+  /** Medalla en formato Prisma (HIERRO, BRONCE, …). */
+  medal: string;
+  rank: number;
+  completedRequests: number;
+  profile: {
+    avatarUrl: string | null;
+    career: string | null;
+    avgRating: number;
+  } | null;
+}
+
+export interface RankingResponse {
+  ranking: RankingEntryDto[];
 }
 
 export interface CurrentUserDto {
@@ -254,7 +276,7 @@ export function mapUserDtoToProfile(user: CurrentUserDto): UserProfile {
     avatar: resolveAvatarUrl(user.profile?.avatarUrl),
     points,
     medal,
-    ranking: 0,
+    ranking: user.stats?.rank ?? 0,
     rating: Number(user.profile?.avgRating ?? 0),
     completadas: user.stats?.completedRequests ?? 0,
     bio: user.profile?.bio?.trim() || undefined,
@@ -317,4 +339,79 @@ export async function updateCurrentUser(
 
   const responseBody = (await response.json()) as CurrentUserResponse;
   return responseBody.user;
+}
+
+/**
+ * Consulta el ranking global (o filtrado por medalla) desde el backend.
+ *
+ * @param token JWT del usuario autenticado.
+ * @param options.limit Top a traer (1–200, default backend = 100).
+ * @param options.medal Medalla Prisma en mayúsculas (HIERRO, ORO, …) o `undefined`.
+ */
+export async function fetchRanking(
+  token: string,
+  options?: { limit?: number; medal?: string },
+): Promise<RankingEntryDto[]> {
+  const params = new URLSearchParams();
+  if (options?.limit != null) params.set("limit", String(options.limit));
+  if (options?.medal) params.set("medal", options.medal);
+  const qs = params.toString();
+  const url = `${API_BASE}/users/ranking${qs ? `?${qs}` : ""}`;
+
+  const response = await fetch(url, {
+    method: "GET",
+    headers: authHeaders(token),
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({}));
+    throw new HttpError(
+      response.status,
+      (error as { message?: string }).message ?? "Error al cargar ranking",
+    );
+  }
+
+  const body = (await response.json()) as RankingResponse;
+  return body.ranking;
+}
+
+/**
+ * UI-ready entry para `rankingView`. Combina la entrada cruda del backend con
+ * la medalla en formato amigable (Medal UI) y un avatar resuelto.
+ */
+export interface RankingStudent {
+  id: string;
+  name: string;
+  points: number;
+  medal: Medal;
+  rank: number;
+  avatarUrl: string;
+  carrera: string;
+  rating: number;
+  completadas: number;
+  /** Iniciales para fallback cuando no se quiera mostrar imagen. */
+  initials: string;
+}
+
+function buildInitials(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+/** Convierte `RankingEntryDto` (API) → `RankingStudent` (UI-ready). */
+export function mapRankingEntry(entry: RankingEntryDto): RankingStudent {
+  return {
+    id: entry.id,
+    name: entry.name,
+    points: entry.points,
+    medal: mapMedalFromApi(entry.medal, entry.points),
+    rank: entry.rank,
+    avatarUrl: resolveAvatarUrl(entry.profile?.avatarUrl ?? null),
+    carrera: entry.profile?.career?.trim() || "—",
+    rating: Number(entry.profile?.avgRating ?? 0),
+    completadas: entry.completedRequests,
+    initials: buildInitials(entry.name),
+  };
 }

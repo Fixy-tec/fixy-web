@@ -185,16 +185,12 @@ export async function createApplicantRating(input: CreateRatingInput) {
     comment: input.comment,
   });
 
-  // Calculate and award points to the creator
-  const creatorPoints = pointsUtils.calculateCreatorPoints(
-    application.request.basePoints
+  // Puntos finales del creador (bonus +20% × modificador del rating, o
+  // penalización plana si el aplicante le puso 1★/2★).
+  const finalCreatorPoints = pointsUtils.calculateCreatorPointsWithRating(
+    application.request.basePoints,
+    input.stars,
   );
-
-  // Apply rating modifier to creator points
-  const ratingModifier = input.stars === 5 ? 1.5 : input.stars === 4 ? 1.2 : input.stars === 3 ? 1 : input.stars === 2 ? -30 : -80;
-  const finalCreatorPoints = typeof ratingModifier === "number" && ratingModifier < 1 
-    ? Math.round(creatorPoints + ratingModifier) 
-    : Math.round(creatorPoints * ratingModifier);
 
   // Update creator user points and medal
   const creatorUser = await prisma.user.findUnique({

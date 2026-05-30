@@ -1,6 +1,7 @@
 import * as requestsRepository from "../repositories/requests.repository";
 import * as tagRepository from "../../tags/repositories/tag.repository";
 import { RequestType, RequestStatus } from "@prisma/client";
+import prisma from "../../../prisma";
 
 interface CreateRequestInput {
   creatorId: string;
@@ -92,20 +93,95 @@ export async function createRequest(input: CreateRequestInput) {
   return requestsRepository.createRequest({ ...input, tagIds });
 }
 
+/**
+ * Auto-expiración perezosa: cada vez que se lee la lista o un detalle de
+ * requests, marcamos como vencidos los que ya superaron su `deadline`:
+ *
+ *   - ABIERTA / EN_REVISION (sin postulantes aceptados suficientes) → CANCELADA
+ *   - EN_PROCESO (con postulantes aceptados) → COMPLETADA (habilita ratings)
+ *
+ * Es barato (dos updateMany por llamada, transaccional) y no requiere
+ * infraestructura de cron. Si en el futuro se quiere precisión a nivel de
+ * segundos, se puede agregar un job adicional que llame esta misma función.
+ */
+export async function expireOverdueRequests(): Promise<void> {
+  const now = new Date();
+  await prisma.$transaction([
+    prisma.request.updateMany({
+      where: {
+        deadline: { lt: now },
+        isExpired: false,
+        status: { in: ["EN_PROCESO"] },
+      },
+      data: { status: "COMPLETADA", isExpired: true },
+    }),
+    prisma.request.updateMany({
+      where: {
+        deadline: { lt: now },
+        isExpired: false,
+        status: { in: ["ABIERTA", "EN_REVISION"] },
+      },
+      data: { status: "CANCELADA", isExpired: true },
+    }),
+  ]);
+}
+
 export async function getRequests(filters?: {
   type?: RequestType;
   status?: RequestStatus;
   creatorId?: string;
 }) {
+  await expireOverdueRequests();
   return requestsRepository.getRequests(filters);
 }
 
 export async function getRequestById(id: string) {
+  await expireOverdueRequests();
   const request = await requestsRepository.getRequestById(id);
   if (!request) {
     throw new Error("Request not found");
   }
   return request;
+}
+
+/**
+ * Aplaza el deadline de un request. Solo el dueño puede hacerlo y solo si el
+ * request sigue activo (no cancelado ni completado). El nuevo deadline debe ser
+ * estrictamente mayor que el actual y posterior a "ahora".
+ */
+export async function extendDeadline(
+  id: string,
+  newDeadline: Date,
+): Promise<ReturnType<typeof requestsRepository.updateRequest>> {
+  const request = await requestsRepository.getRequestById(id);
+  if (!request) {
+    throw new Error("Request not found");
+  }
+
+  if (request.status === "CANCELADA" || request.status === "COMPLETADA") {
+    throw new Error(
+      "No puedes aplazar una solicitud cancelada o completada",
+    );
+  }
+
+  if (request.isExpired) {
+    throw new Error(
+      "Esta solicitud ya venció y no puede aplazarse; crea una nueva",
+    );
+  }
+
+  const now = new Date();
+  if (newDeadline <= now) {
+    throw new Error("La nueva fecha debe ser posterior a hoy");
+  }
+
+  if (request.deadline && newDeadline <= request.deadline) {
+    throw new Error(
+      "La nueva fecha debe ser posterior al deadline actual",
+    );
+  }
+
+  return requestsRepository.updateRequest(id, { deadline: newDeadline });
 }
 
 export async function updateRequest(id: string, input: UpdateRequestInput) {
