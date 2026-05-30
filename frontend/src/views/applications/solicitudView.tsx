@@ -21,6 +21,8 @@ export default function ApplicationsView() {
   } = useRequest();
 
   const [tab, setTab] = useState<Tab>("mis-solicitudes");
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 7;
 
   useEffect(() => {
     if (authLoading) return;
@@ -36,9 +38,20 @@ export default function ApplicationsView() {
     (s) => s.status === "Abierta",
   ).length;
 
+  // Paginación
+  const totalPages = Math.ceil(data.length / ITEMS_PER_PAGE);
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedData = data.slice(startIndex, endIndex);
+
   const handleCardClick = (s: Solicitud) => {
     router.push(`/applications/${s.id}`);
   };
+
+  // Reset a página 1 cuando cambia de tab
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [tab]);
 
   if (authLoading || !isAuthenticated) {
     return (
@@ -144,16 +157,60 @@ export default function ApplicationsView() {
             <Loader2 className="w-8 h-8 animate-spin text-[#1a4ca3]" />
           </div>
         ) : data.length > 0 ? (
-          <div className="grid grid-cols-1 gap-4">
-            {data.map((s) => (
-              <SolicitudCard
-                key={s.id}
-                solicitud={s}
-                onClick={handleCardClick}
-                showApplicants={tab === "mis-solicitudes"}
-              />
-            ))}
-          </div>
+          <>
+            <div className="grid grid-cols-1 gap-4">
+              {paginatedData.map((s) => (
+                <SolicitudCard
+                  key={s.id}
+                  solicitud={s}
+                  onClick={handleCardClick}
+                  showApplicants={tab === "mis-solicitudes"}
+                />
+              ))}
+            </div>
+
+            {/* Paginación */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-6">
+                <button
+                  onClick={() =>
+                    setCurrentPage((p) => Math.max(1, p - 1))
+                  }
+                  disabled={currentPage === 1}
+                  className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Anterior
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
+                    (page) => (
+                      <button
+                        key={page}
+                        onClick={() => setCurrentPage(page)}
+                        className="w-8 h-8 rounded-lg text-sm font-medium transition-all"
+                        style={{
+                          background:
+                            currentPage === page ? "#1a4ca3" : "#f3f4f6",
+                          color: currentPage === page ? "white" : "#6b7280",
+                        }}
+                      >
+                        {page}
+                      </button>
+                    ),
+                  )}
+                </div>
+                <button
+                  onClick={() =>
+                    setCurrentPage((p) => Math.min(totalPages, p + 1))
+                  }
+                  disabled={currentPage === totalPages}
+                  className="px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Siguiente
+                </button>
+              </div>
+            )}
+          </>
         ) : (
           <div className="text-center py-20 text-gray-400">
             <FileText size={36} className="mx-auto mb-3 opacity-30" />
