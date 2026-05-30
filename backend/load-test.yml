@@ -1,0 +1,46 @@
+config:
+  target: "http://localhost:4000"
+  phases:
+    - duration: 20
+      arrivalRate: 100
+      name: "Calentamiento - 10 usuarios/seg"
+    - duration: 10
+      arrivalRate: 500
+      name: "Carga moderada - 50 usuarios/seg"
+    - duration: 30
+      arrivalRate: 1000
+      name: "Pico máximo - 100 usuarios/seg"
+  defaults:
+    headers:
+      Content-Type: "application/json"
+
+scenarios:
+  - name: "Login de usuario existente"
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "andre.ancco@tecsup.edu.pe"
+            password: "al955tec1845"
+          expect:
+            - statusCode: 200
+
+  - name: "Login con credenciales incorrectas"
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: "fake@tecsup.edu.pe"
+            password: "passwordincorrecta"
+          expect:
+            - statusCode: 401
+
+  - name: "Login sin body"
+    flow:
+      - post:
+          url: "/api/auth/login"
+          json:
+            email: ""
+            password: ""
+          expect:
+            - statusCode: 400
