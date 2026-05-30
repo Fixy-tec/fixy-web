@@ -55,8 +55,17 @@ export async function updateCurrentUser(
   } catch (error: any) {
 
     if (error instanceof ZodError) {
+      const first = error.issues[0];
+      const field = first?.path?.join(".") || "body";
+      const message = first?.message || "Invalid payload";
+      console.error("[PATCH /users/me] Zod error:", error.issues);
       return res.status(400).json({
-        message: error.issues[0]?.message,
+        message: `${field}: ${message}`,
+        field,
+        issues: error.issues.map((i) => ({
+          path: i.path.join("."),
+          message: i.message,
+        })),
       });
     }
 
@@ -64,6 +73,7 @@ export async function updateCurrentUser(
       return res.status(400).json({ message: error.message });
     }
 
+    console.error("[PATCH /users/me] Unexpected error:", error);
     return res.status(400).json({
       message:
         error.message ||

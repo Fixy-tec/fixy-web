@@ -326,10 +326,15 @@ export default function UserProfileView({
                 </span>
                 <input
                   type="tel"
-                  placeholder="999 999 999"
+                  inputMode="numeric"
+                  placeholder="999999999"
+                  maxLength={9}
                   value={draft.whatsapp}
                   onChange={(e) =>
-                    setDraft({ ...draft, whatsapp: e.target.value })
+                    setDraft({
+                      ...draft,
+                      whatsapp: e.target.value.replace(/\D/g, "").slice(0, 9),
+                    })
                   }
                   className="flex-1 px-4 py-2.5 rounded-r-lg border border-gray-200 text-sm text-gray-800 focus:outline-none focus:ring-2 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3] transition-colors"
                 />

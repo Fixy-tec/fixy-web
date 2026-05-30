@@ -138,20 +138,15 @@ function authHeaders(token: string): HeadersInit {
 }
 
 /**
- * URL absoluta del avatar para guardar en `Profile.avatarUrl`
- * (imágenes estáticas servidas por el mismo origen del front).
+ * Path público del avatar para guardar en `Profile.avatarUrl`.
+ *
+ * Guardamos solo el path relativo (`/avatars/fixoPirata.png`) para que:
+ *  - Sea portable (no se rompe al cambiar de host).
+ *  - Next/Image lo sirva como asset estático local sin pasar por optimización
+ *    remota (más rápido y sin requerir `remotePatterns`).
  */
-export function toAbsoluteProfileImageUrl(
-  publicPath: string,
-  origin?: string,
-): string {
-  const base =
-    origin ??
-    (typeof window !== "undefined"
-      ? window.location.origin
-      : process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000");
-  const path = publicPath.startsWith("/") ? publicPath : `/${publicPath}`;
-  return `${base}${path}`;
+export function toProfileImagePath(publicPath: string): string {
+  return publicPath.startsWith("/") ? publicPath : `/${publicPath}`;
 }
 
 /** Normaliza número peruano a formato internacional +51… */
@@ -188,9 +183,26 @@ export function mapMedalFromApi(apiMedal: string, points: number): Medal {
   return MEDAL_FROM_API[apiMedal.toUpperCase()] ?? getMedalByPoints(points).name;
 }
 
+/**
+ * Convierte cualquier `avatarUrl` guardado (path relativo o URL absoluta legacy)
+ * a un path que Next.js pueda servir como asset local.
+ */
 export function resolveAvatarUrl(avatarUrl: string | null | undefined): string {
-  if (!avatarUrl?.trim()) return DEFAULT_AVATAR_PATHS[0];
-  if (avatarUrl.startsWith("http") || avatarUrl.startsWith("/")) return avatarUrl;
+  const value = avatarUrl?.trim();
+  if (!value) return DEFAULT_AVATAR_PATHS[0];
+
+  // Registros antiguos guardados como `http://localhost:3000/avatars/fixoX.png`:
+  // extraemos solo el path para servirlo como estático local.
+  if (/^https?:\/\//i.test(value)) {
+    try {
+      const url = new URL(value);
+      return url.pathname || DEFAULT_AVATAR_PATHS[0];
+    } catch {
+      return DEFAULT_AVATAR_PATHS[0];
+    }
+  }
+
+  if (value.startsWith("/")) return value;
   return DEFAULT_AVATAR_PATHS[0];
 }
 

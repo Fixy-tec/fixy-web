@@ -29,8 +29,8 @@ const RegisterView = () => {
     const newErrors: Record<string, string> = {};
 
     const trimmedName = form.name.trim();
-    if (trimmedName.length < 5)
-      newErrors.name = "El usuario debe tener al menos 5 caracteres";
+    if (trimmedName.length < 2)
+      newErrors.name = "El usuario debe tener al menos 2 caracteres";
     else if (trimmedName.length > 15)
       newErrors.name = "El usuario no puede tener más de 15 caracteres";
     else if (!NAME_REGEX.test(trimmedName))
@@ -125,7 +125,7 @@ const RegisterView = () => {
 
               <input
                 type="text"
-                placeholder="Ej. gabriel (5-15 letras, sin espacios)"
+                placeholder="Ej. gabriel (2-15 letras, sin espacios)"
                 value={form.name}
                 maxLength={15}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}

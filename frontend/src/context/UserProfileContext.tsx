@@ -15,7 +15,7 @@ import {
   fetchCurrentUser,
   isWhatsappValid,
   normalizePeWhatsapp,
-  toAbsoluteProfileImageUrl,
+  toProfileImagePath,
   updateCurrentUser,
   validateBio,
   validateOptionalUrl,
@@ -35,7 +35,8 @@ interface UserProfileContextValue {
   /** Rutas públicas de avatares por defecto (onboarding / perfil). */
   defaultAvatarPaths: readonly string[];
   normalizeWhatsapp: (input: string) => string;
-  toAbsoluteProfileImageUrl: (publicPath: string, origin?: string) => string;
+  /** Normaliza el path del avatar antes de persistirlo (path relativo). */
+  toProfileImagePath: (publicPath: string) => string;
   /** Reglas de validación alineadas con el backend (`user.schema.ts`). */
   profileRules: typeof PROFILE_RULES;
   isWhatsappValid: (input: string) => boolean;
@@ -115,7 +116,7 @@ export function UserProfileProvider({
       saveProfile,
       defaultAvatarPaths: DEFAULT_AVATAR_PATHS,
       normalizeWhatsapp: normalizePeWhatsapp,
-      toAbsoluteProfileImageUrl,
+      toProfileImagePath,
       profileRules: PROFILE_RULES,
       isWhatsappValid,
       validateBio,

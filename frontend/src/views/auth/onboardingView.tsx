@@ -30,7 +30,7 @@ const OnboardingView = () => {
     isSaving,
     defaultAvatarPaths,
     normalizeWhatsapp,
-    toAbsoluteProfileImageUrl,
+    toProfileImagePath,
     profileRules,
     isWhatsappValid,
     validateBio,
@@ -110,7 +110,7 @@ const OnboardingView = () => {
       await saveProfile({
         tags: [...new Set(data.tagNames)],
         whatsapp: normalizeWhatsapp(data.whatsapp),
-        avatarUrl: toAbsoluteProfileImageUrl(data.avatarPath),
+        avatarUrl: toProfileImagePath(data.avatarPath),
         bio: data.bio.trim() || undefined,
         githubUrl: data.githubUrl.trim() || undefined,
         linkedinUrl: data.linkedinUrl.trim() || undefined,
@@ -281,10 +281,15 @@ const OnboardingView = () => {
                   </span>
                   <input
                     type="tel"
-                    placeholder="999 999 999"
+                    inputMode="numeric"
+                    placeholder="999999999"
+                    maxLength={9}
                     value={data.whatsapp}
                     onChange={(e) =>
-                      setData({ ...data, whatsapp: e.target.value })
+                      setData({
+                        ...data,
+                        whatsapp: e.target.value.replace(/\D/g, "").slice(0, 9),
+                      })
                     }
                     className="flex-1 px-4 py-2.5 rounded-r-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3] transition-colors"
                   />

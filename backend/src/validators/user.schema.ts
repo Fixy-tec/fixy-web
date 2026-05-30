@@ -8,6 +8,22 @@ import {
 const BIO_REGEX =
   /^[A-Za-z0-9\s*.,\-/#@!?¿¡\p{Emoji_Presentation}\p{Extended_Pictographic}]+$/u;
 
+/** Acepta URL absoluta (http/https) o path absoluto local (`/avatars/...`). */
+const urlOrAbsolutePath = z
+  .string()
+  .refine(
+    (value) => {
+      if (value.startsWith("/")) return true;
+      try {
+        new URL(value);
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    { message: "Must be a valid URL or absolute path" },
+  );
+
 export const updateProfileSchema =
   z.object({
 
@@ -41,9 +57,7 @@ export const updateProfileSchema =
       )
       .optional(),
 
-    avatarUrl: z
-      .url()
-      .optional(),
+    avatarUrl: urlOrAbsolutePath.optional(),
 
     portfolioUrl: z
       .url()

@@ -593,14 +593,22 @@ export default function CreateSolicitudView() {
                     S/.
                   </span>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="0.00"
-                    min={0}
-                    step="0.01"
                     value={form.beneficio}
-                    onChange={(e) =>
-                      setForm({ ...form, beneficio: e.target.value })
-                    }
+                    onKeyDown={(e) => {
+                      if (["-", "+", "e", "E"].includes(e.key)) {
+                        e.preventDefault();
+                      }
+                    }}
+                    onChange={(e) => {
+                      // Solo dígitos y un punto decimal, sin signo
+                      const cleaned = e.target.value
+                        .replace(/[^0-9.]/g, "")
+                        .replace(/(\..*?)\..*/g, "$1");
+                      setForm({ ...form, beneficio: cleaned });
+                    }}
                     className={`flex-1 px-4 py-2.5 rounded-r-lg border text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors ${
                       errors.beneficio
                         ? "border-red-300 focus:ring-red-200"
