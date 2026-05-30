@@ -7,8 +7,12 @@ import { Eye, EyeOff, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/src/context/AuthContext";
 
-const TECSUP_REGEX = /^[A-Za-z]+@tecsup\.edu\.pe$/;
-const NAME_REGEX = /^[A-Za-z]+$/;
+// Alineados con `backend/src/validators/auth.schema.ts`:
+//  - Email: `nombre.apellido@tecsup.edu.pe` (uno o más bloques de letras
+//    separados por un único punto antes del @).
+//  - Nombre: letras latinas incluyendo tildes y ñ.
+const TECSUP_REGEX = /^[A-Za-z]+(?:\.[A-Za-z]+)*@tecsup\.edu\.pe$/;
+const NAME_REGEX = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+$/;
 const PASSWORD_HAS_LETTER_AND_NUMBER = /^(?=.*[A-Za-z])(?=.*\d)/;
 
 const RegisterView = () => {
@@ -34,11 +38,12 @@ const RegisterView = () => {
     else if (trimmedName.length > 15)
       newErrors.name = "El usuario no puede tener más de 15 caracteres";
     else if (!NAME_REGEX.test(trimmedName))
-      newErrors.name = "Solo se permiten letras (sin espacios ni números)";
+      newErrors.name =
+        "Solo se permiten letras (con tildes y ñ, sin espacios ni números)";
 
     if (!TECSUP_REGEX.test(form.email))
       newErrors.email =
-        "Debe ser un correo institucional con solo letras (ej. tunombre@tecsup.edu.pe)";
+        "Debe ser un correo institucional (ej. nombre.apellido@tecsup.edu.pe)";
 
     if (form.password.length < 8)
       newErrors.password = "Mínimo 8 caracteres";

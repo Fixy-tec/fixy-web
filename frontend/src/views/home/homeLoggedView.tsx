@@ -3,20 +3,29 @@
 import { useRouter } from "next/navigation";
 import { TrendingUp, Sparkles, Bell, Flame, ChevronRight, Check, Loader2 } from "lucide-react";
 import Image from "next/image";
+import { useAuth } from "@/src/context/AuthContext";
 import { useNotifications } from "@/src/context/NotificationContext";
 import {
   formatRelativeTime,
   getNotificationStyle,
 } from "@/src/lib/notification";
 
+/** Capitaliza la primera letra (el backend guarda el username en minúsculas). */
+function capitalize(value: string): string {
+  if (!value) return value;
+  return value.charAt(0).toUpperCase() + value.slice(1);
+}
+
 const HomeLoggedView = () => {
   const router = useRouter();
+  const { user } = useAuth();
   const {
     notifications,
     isLoading: notifsLoading,
     markAsSeen,
   } = useNotifications();
   const recentNotifications = notifications.slice(0, 5);
+  const displayName = capitalize(user?.name?.trim() || "estudiante");
 
   return (
     <div className="min-h-screen bg-[#f6f8fb]">
@@ -30,7 +39,7 @@ const HomeLoggedView = () => {
             <div className="relative z-10">
               <h1 className="text-3xl md:text-4xl flex items-center gap-2 font-bold mt-5 leading-tight">
                 <Sparkles size={30} />
-                Bienvenido, Gabriel
+                Bienvenido, {displayName}
               </h1>
 
               <p className="text-white/80 mt-5 max-w-xl leading-relaxed">

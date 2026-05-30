@@ -25,12 +25,12 @@ export const DIFFICULTY_LABELS: Record<number, string> = {
 export const REQUEST_RULES = {
   TITLE_MIN: 5,
   TITLE_MAX: 80,
-  TITLE_REGEX: /^[A-Za-z0-9\s*/.\-#!?]+$/u,
+  TITLE_REGEX: /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9\s*/.\-#!?]+$/u,
   TITLE_MAX_SPECIAL_CHARS: 5,
   DESCRIPTION_MIN: 10,
   DESCRIPTION_MAX: 1000,
   DESCRIPTION_REGEX:
-    /^[A-Za-z0-9\s*/.\-#!?,¿¡\p{Emoji_Presentation}\p{Extended_Pictographic}]+$/u,
+    /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9\s*/.\-#!?,¿¡\p{Emoji_Presentation}\p{Extended_Pictographic}]+$/u,
   DESCRIPTION_MAX_SPECIAL_CHARS: 15,
   DESCRIPTION_MAX_EMOJIS: 5,
   PARTICIPANTS_MIN: 1,
@@ -60,7 +60,7 @@ export function validateTitle(title: string): string | null {
   if (value.length > REQUEST_RULES.TITLE_MAX)
     return `El título no puede exceder ${REQUEST_RULES.TITLE_MAX} caracteres`;
   if (!REQUEST_RULES.TITLE_REGEX.test(value))
-    return "El título solo permite letras (A-Z), números y signos básicos (*/.,-#!?)";
+    return "El título solo permite letras (con tildes y ñ), números y signos básicos (*/.,-#!?)";
   // Nota: usamos `countMatches` (que invoca `.match()`) en vez de `.test()` para
   // evitar el estado de `lastIndex` que tienen las regex con flag /g.
   if (countMatches(value, EMOJI_REGEX_GLOBAL) > 0)
@@ -77,7 +77,7 @@ export function validateDescription(description: string): string | null {
   if (value.length > REQUEST_RULES.DESCRIPTION_MAX)
     return `La descripción no puede exceder ${REQUEST_RULES.DESCRIPTION_MAX} caracteres`;
   if (!REQUEST_RULES.DESCRIPTION_REGEX.test(value))
-    return "La descripción solo permite letras (A-Z), números y signos básicos (*/.,-#!?¿¡)";
+    return "La descripción solo permite letras (con tildes y ñ), números y signos básicos (*/.,-#!?¿¡)";
   if (countMatches(value, SPECIAL_CHARS_REGEX) > REQUEST_RULES.DESCRIPTION_MAX_SPECIAL_CHARS)
     return `La descripción admite máximo ${REQUEST_RULES.DESCRIPTION_MAX_SPECIAL_CHARS} caracteres especiales`;
   if (countMatches(value, EMOJI_REGEX_GLOBAL) > REQUEST_RULES.DESCRIPTION_MAX_EMOJIS)

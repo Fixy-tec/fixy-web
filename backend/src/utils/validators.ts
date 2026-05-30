@@ -1,5 +1,6 @@
 export function isValidUsername(username: string): boolean {
-  const usernameRegex = /^[A-Za-z]{5,15}$/;
+  // Acepta letras latinas incluyendo tildes y ñ (mayúsculas y minúsculas).
+  const usernameRegex = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]{5,15}$/;
 
   return usernameRegex.test(username);
 }

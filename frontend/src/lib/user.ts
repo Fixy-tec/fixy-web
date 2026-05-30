@@ -109,12 +109,12 @@ export interface UpdateCurrentUserPayload {
 export const PROFILE_RULES = {
   NAME_MIN: 2,
   NAME_MAX: 15,
-  NAME_REGEX: /^[A-Za-z]+$/,
+  NAME_REGEX: /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+$/,
   WHATSAPP_REGEX: /^(?:\+51)?9\d{8}$/,
   BIO_MIN: 10,
   BIO_MAX: 300,
   BIO_REGEX:
-    /^[A-Za-z0-9\s*.,\-/#@!?¿¡\p{Emoji_Presentation}\p{Extended_Pictographic}]+$/u,
+    /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9\s*.,\-/#@!?¿¡\p{Emoji_Presentation}\p{Extended_Pictographic}]+$/u,
   BIO_MAX_EMOJIS: 5,
   TAGS_MAX: 5,
 } as const;
@@ -131,7 +131,7 @@ export function validateName(name: string | undefined): string | null {
   if (value.length > PROFILE_RULES.NAME_MAX)
     return `El nombre no puede exceder ${PROFILE_RULES.NAME_MAX} caracteres`;
   if (!PROFILE_RULES.NAME_REGEX.test(value))
-    return "El nombre solo permite letras (sin espacios, números ni emojis)";
+    return "El nombre solo permite letras (con tildes y ñ, sin espacios, números ni emojis)";
   return null;
 }
 
@@ -149,7 +149,7 @@ export function validateBio(bio: string | undefined): string | null {
   if (value.length > PROFILE_RULES.BIO_MAX)
     return `La bio no puede exceder ${PROFILE_RULES.BIO_MAX} caracteres`;
   if (!PROFILE_RULES.BIO_REGEX.test(value))
-    return "La bio solo permite letras (A-Z), números y signos básicos (.,-/#@!?¿¡)";
+    return "La bio solo permite letras (con tildes y ñ), números y signos básicos (.,-/#@!?¿¡)";
   const emojis = value.match(EMOJI_REGEX);
   if (emojis && emojis.length > PROFILE_RULES.BIO_MAX_EMOJIS)
     return `La bio admite máximo ${PROFILE_RULES.BIO_MAX_EMOJIS} emojis`;

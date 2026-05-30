@@ -11,10 +11,10 @@ import { normalizeTag } from "../utils/tag.utils";
 import {countSpecialCharacters} from "../utils/text.utils";
 
 const TITLE_REGEX =
-  /^[A-Za-z0-9\s*\/.\-#!?]+$/u;
+  /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9\s*\/.\-#!?]+$/u;
 
 const DESCRIPTION_REGEX =
-  /^[A-Za-z0-9\s*\/.\-#!?,¿¡\p{Emoji_Presentation}\p{Extended_Pictographic}]+$/u;
+  /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9\s*\/.\-#!?,¿¡\p{Emoji_Presentation}\p{Extended_Pictographic}]+$/u;
 
 export const createRequestSchema =
   z.object({
