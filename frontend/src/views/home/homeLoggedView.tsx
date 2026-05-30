@@ -23,12 +23,12 @@ const HomeLoggedView = () => {
               </h1>
 
               <p className="text-white/80 mt-5 max-w-xl leading-relaxed">
-                Encontramos nuevas solicitudes compatibles con tus habilidades
-                en React, Node.js y Docker.
+                Necesitas ayuda con un proyecto? Crea una solicitud y encuentra
+                el mejor postulante para tu proyecto.
               </p>
 
               <div className="flex flex-wrap gap-2 mt-6">
-                {["React", "Node.js", "Docker", "UI/UX"].map((tag) => (
+                {["Crea", "Conecta", "Califica", "Comparte"].map((tag) => (
                   <span
                     key={tag}
                     className="px-3 py-1 rounded-full bg-white/10 border border-white/20 text-sm"
@@ -41,17 +41,16 @@ const HomeLoggedView = () => {
 
             <div className="relative z-10 flex flex-wrap gap-3 mt-8">
               <button
-                onClick={() => router.push("/find")}
+                onClick={() => router.push("/applications/crear")}
                 className="bg-white text-[#1a4ca3] px-5 py-3 rounded-2xl font-semibold hover:opacity-90 transition"
               >
-                Explorar solicitudes
+                Crear solicitud
               </button>
-
               <button
-                onClick={() => router.push("/applications/new")}
+                onClick={() => router.push("/find")}
                 className="bg-white/10 border border-white/20 px-5 py-3 rounded-2xl font-medium hover:bg-white/20 transition"
               >
-                Crear solicitud
+                Explorar solicitudes
               </button>
             </div>
           </div>
@@ -168,7 +167,7 @@ const HomeLoggedView = () => {
           </div>
 
           {/* SOLICITUDES */}
-          <div className="lg:col-span-12 bg-white border border-gray-100 rounded-4xl p-6 shadow-sm">
+          {/* <div className="lg:col-span-12 bg-white border border-gray-100 rounded-4xl p-6 shadow-sm">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
@@ -225,21 +224,11 @@ const HomeLoggedView = () => {
                 </div>
               ))}
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
     </div>
   );
 };
-
-function MiniStat({ title, value }: { title: string; value: string }) {
-  return (
-    <div className="rounded-2xl bg-[#f8fafc] border border-gray-100 p-4">
-      <p className="text-xs text-gray-400">{title}</p>
-
-      <p className="text-lg font-bold text-gray-800 mt-1">{value}</p>
-    </div>
-  );
-}
 
 export default HomeLoggedView;
