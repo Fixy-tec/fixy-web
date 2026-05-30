@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BookOpen,
@@ -15,8 +16,11 @@ import {
   X,
   Pencil,
   Trash2,
+  Loader2,
+  AlertTriangle,
 } from "lucide-react";
 
+import { useRequest } from "@/src/context/RequestContext";
 import type { SolicitudDetailData } from "@/src/lib/solicitudMappers";
 
 const statusStyle: Record<string, string> = {
@@ -49,7 +53,26 @@ interface Props {
 
 export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
   const router = useRouter();
+  const { deleteSolicitud, isDeleting, deleteError } = useRequest();
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [localError, setLocalError] = useState<string | null>(null);
   const dias = durationDays(s.fechaPublicacion, s.fechaLimite);
+
+  const handleEdit = () => {
+    router.push(`/applications/${s.id}/editar`);
+  };
+
+  const handleConfirmDelete = async () => {
+    setLocalError(null);
+    try {
+      await deleteSolicitud(s.id);
+      router.push("/applications");
+    } catch (e) {
+      setLocalError(
+        e instanceof Error ? e.message : "No se pudo eliminar la solicitud",
+      );
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
@@ -211,18 +234,88 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
         {/* Actions */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
           <div className="grid grid-cols-2 gap-3">
-            <button className="flex items-center justify-center gap-2 bg-[#1a4ca3] hover:bg-[#143d87] text-white font-semibold py-3 rounded-xl text-sm transition-colors">
+            <button
+              type="button"
+              onClick={handleEdit}
+              disabled={isDeleting}
+              className="flex items-center justify-center gap-2 bg-[#1a4ca3] hover:bg-[#143d87] text-white font-semibold py-3 rounded-xl text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <Pencil size={15} />
               Editar solicitud
             </button>
 
-            <button className="flex items-center justify-center gap-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold py-3 rounded-xl text-sm transition-colors">
+            <button
+              type="button"
+              onClick={() => {
+                setLocalError(null);
+                setConfirmOpen(true);
+              }}
+              disabled={isDeleting}
+              className="flex items-center justify-center gap-2 bg-rose-50 hover:bg-rose-100 text-rose-600 font-semibold py-3 rounded-xl text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
               <Trash2 size={15} />
               Retirar solicitud
             </button>
           </div>
+
+          {(localError || deleteError) && !confirmOpen && (
+            <p className="mt-3 text-xs text-red-600">
+              {localError ?? deleteError}
+            </p>
+          )}
         </div>
       </div>
+
+      {/* Modal de confirmación */}
+      {confirmOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-sm p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-rose-50 flex items-center justify-center shrink-0">
+                <AlertTriangle size={18} className="text-rose-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-800 mb-1">
+                  Eliminar solicitud
+                </h3>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  ¿Seguro que quieres retirar{" "}
+                  <span className="font-medium text-gray-700">{s.titulo}</span>?
+                  Esta acción no se puede deshacer.
+                </p>
+              </div>
+            </div>
+
+            {localError && (
+              <p className="text-xs text-red-600 mb-3">{localError}</p>
+            )}
+
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setConfirmOpen(false)}
+                disabled={isDeleting}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-rose-600 hover:bg-rose-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isDeleting ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <Trash2 size={14} />
+                )}
+                {isDeleting ? "Eliminando…" : "Sí, eliminar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

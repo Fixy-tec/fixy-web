@@ -12,9 +12,11 @@ import { fetchApplicationsByApplicant } from "@/src/lib/application";
 import { isHttpError } from "@/src/lib/httpError";
 import {
   createRequest,
+  deleteRequest,
   fetchRequestById,
   fetchRequests,
   fetchRequestsByCreator,
+  updateRequest,
   basePointsForDifficulty,
   mapTipoToApi,
   DIFFICULTY_BASE_POINTS,
@@ -28,6 +30,7 @@ import {
   validateDeadline,
   type CreateRequestPayload,
   type RequestDto,
+  type UpdateRequestPayload,
 } from "@/src/lib/request";
 import {
   applicationToSolicitud,
@@ -40,6 +43,7 @@ import type { Solicitud } from "@/src/components/cards/solicitudCard";
 export type {
   CreateRequestPayload,
   RequestDto,
+  UpdateRequestPayload,
 } from "@/src/lib/request";
 
 export {
@@ -66,6 +70,15 @@ interface RequestContextValue {
   isCreating: boolean;
   error: string | null;
   createSolicitud: (form: CreateSolicitudFormInput) => Promise<RequestDto>;
+  isUpdating: boolean;
+  updateError: string | null;
+  updateSolicitud: (
+    id: string,
+    form: CreateSolicitudFormInput,
+  ) => Promise<SolicitudDetailData>;
+  isDeleting: boolean;
+  deleteError: string | null;
+  deleteSolicitud: (id: string) => Promise<void>;
   myRequests: Solicitud[];
   myApplications: Solicitud[];
   isLoadingLists: boolean;
@@ -98,6 +111,10 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
   const { token, isAuthenticated, user } = useAuth();
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+  const [updateError, setUpdateError] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const [myRequests, setMyRequests] = useState<Solicitud[]>([]);
   const [myApplications, setMyApplications] = useState<Solicitud[]>([]);
@@ -270,11 +287,104 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
     [token, isAuthenticated, refreshLists],
   );
 
+  const updateSolicitud = useCallback(
+    async (id: string, form: CreateSolicitudFormInput) => {
+      if (!token || !isAuthenticated) {
+        throw new Error("Debes iniciar sesión para editar una solicitud");
+      }
+
+      setIsUpdating(true);
+      setUpdateError(null);
+
+      try {
+        const tagIds = [...new Set(form.tagIds ?? [])];
+        if (tagIds.length === 0) {
+          throw new Error("Selecciona al menos un tag");
+        }
+
+        const difficulty = Number(form.dificultad);
+        const basePoints = basePointsForDifficulty(difficulty);
+        if (!form.fechaLimite?.trim()) {
+          throw new Error("La fecha límite es obligatoria");
+        }
+
+        const rawBenefit = form.beneficio?.trim();
+        const economicBenefit =
+          rawBenefit && rawBenefit.length > 0
+            ? Number.parseFloat(rawBenefit)
+            : null;
+
+        const payload: UpdateRequestPayload = {
+          type: mapTipoToApi(form.tipo),
+          title: form.titulo.trim(),
+          description: form.descripcion.trim(),
+          difficulty,
+          basePoints,
+          participantsNeeded: Number(form.participantes) || 1,
+          deadline: form.fechaLimite.trim(),
+          tagIds,
+          economicBenefit:
+            economicBenefit != null &&
+            !Number.isNaN(economicBenefit) &&
+            economicBenefit > 0
+              ? economicBenefit
+              : null,
+        };
+
+        const updated = await updateRequest(token, id, payload);
+        const detail = requestToDetail(updated, { currentUserId: user?.id });
+        setCurrentDetail(detail);
+        await refreshLists();
+        return detail;
+      } catch (e) {
+        const message =
+          e instanceof Error ? e.message : "Error al actualizar la solicitud";
+        setUpdateError(message);
+        throw e;
+      } finally {
+        setIsUpdating(false);
+      }
+    },
+    [token, isAuthenticated, refreshLists, user?.id],
+  );
+
+  const deleteSolicitud = useCallback(
+    async (id: string) => {
+      if (!token || !isAuthenticated) {
+        throw new Error("Debes iniciar sesión para eliminar una solicitud");
+      }
+
+      setIsDeleting(true);
+      setDeleteError(null);
+
+      try {
+        await deleteRequest(token, id);
+        setMyRequests((prev) => prev.filter((s) => s.id !== id));
+        setCurrentDetail((prev) => (prev?.id === id ? null : prev));
+        await refreshLists();
+      } catch (e) {
+        const message =
+          e instanceof Error ? e.message : "Error al eliminar la solicitud";
+        setDeleteError(message);
+        throw e;
+      } finally {
+        setIsDeleting(false);
+      }
+    },
+    [token, isAuthenticated, refreshLists],
+  );
+
   const value = useMemo(
     () => ({
       isCreating,
       error,
       createSolicitud,
+      isUpdating,
+      updateError,
+      updateSolicitud,
+      isDeleting,
+      deleteError,
+      deleteSolicitud,
       myRequests,
       myApplications,
       isLoadingLists,
@@ -302,6 +412,12 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
       isCreating,
       error,
       createSolicitud,
+      isUpdating,
+      updateError,
+      updateSolicitud,
+      isDeleting,
+      deleteError,
+      deleteSolicitud,
       myRequests,
       myApplications,
       isLoadingLists,

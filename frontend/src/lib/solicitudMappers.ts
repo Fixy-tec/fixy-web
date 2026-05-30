@@ -76,6 +76,10 @@ export function applicationToSolicitud(
 export interface SolicitudDetailData extends Solicitud {
   descripcionCompleta: string;
   basePoints: number;
+  /** UUIDs de los tags asociados (útil para precargar el formulario de edición) */
+  tagIds: string[];
+  /** Monto crudo (número) — `null` cuando no hay beneficio económico */
+  beneficioMonto: number | null;
   autorAvatar?: string;
   autorMedalla?: string;
   autorRating?: number;
@@ -99,6 +103,8 @@ export function requestToDetail(
     ...card,
     descripcionCompleta: req.description,
     basePoints: req.basePoints,
+    tagIds: req.tags?.map((t) => t.tag.id) ?? [],
+    beneficioMonto: req.economicBenefit ?? null,
     autorAvatar: req.creator?.profile?.avatarUrl ?? undefined,
     autorMedalla: req.creator?.medal,
     autorRating: req.creator?.profile?.avgRating,

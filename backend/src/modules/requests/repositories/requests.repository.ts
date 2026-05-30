@@ -126,8 +126,17 @@ export async function updateRequest(id: string, data: UpdateRequestInput) {
 }
 
 export async function deleteRequest(id: string) {
-  return prisma.request.delete({
-    where: { id },
+  // Limpiamos las dependencias que no tienen ON DELETE CASCADE en el schema
+  // antes de borrar el Request, para evitar errores de FK
+  // (RequestTag_requestId_fkey, PointLog_requestId_fkey).
+  // Las Applications y Ratings sí tienen cascade, por lo que se borran solas.
+  return prisma.$transaction(async (tx) => {
+    await tx.requestTag.deleteMany({ where: { requestId: id } });
+    await tx.pointLog.updateMany({
+      where: { requestId: id },
+      data: { requestId: null },
+    });
+    return tx.request.delete({ where: { id } });
   });
 }
 

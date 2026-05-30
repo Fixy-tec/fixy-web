@@ -61,7 +61,9 @@ export function validateTitle(title: string): string | null {
     return `El título no puede exceder ${REQUEST_RULES.TITLE_MAX} caracteres`;
   if (!REQUEST_RULES.TITLE_REGEX.test(value))
     return "El título solo permite letras (A-Z), números y signos básicos (*/.,-#!?)";
-  if (EMOJI_REGEX_GLOBAL.test(value))
+  // Nota: usamos `countMatches` (que invoca `.match()`) en vez de `.test()` para
+  // evitar el estado de `lastIndex` que tienen las regex con flag /g.
+  if (countMatches(value, EMOJI_REGEX_GLOBAL) > 0)
     return "El título no puede contener emojis";
   if (countMatches(value, SPECIAL_CHARS_REGEX) > REQUEST_RULES.TITLE_MAX_SPECIAL_CHARS)
     return `El título admite máximo ${REQUEST_RULES.TITLE_MAX_SPECIAL_CHARS} caracteres especiales`;
@@ -137,6 +139,24 @@ export interface CreateRequestPayload {
   tagIds: string[];
   /** Nombres de tag (compatibilidad con backends que lean `tags`) */
   tags?: string[];
+}
+
+/**
+ * Payload de actualización: todos los campos son opcionales, pero el backend
+ * sobreescribe los que vengan presentes. `economicBenefit: null` sirve para
+ * limpiar el monto y `deadline` admite ISO 8601 o `YYYY-MM-DD`.
+ */
+export interface UpdateRequestPayload {
+  type?: RequestTypeApi;
+  title?: string;
+  description?: string;
+  difficulty?: number;
+  basePoints?: number;
+  participantsNeeded?: number;
+  deadline?: string;
+  economicBenefit?: number | null;
+  status?: string;
+  tagIds?: string[];
 }
 
 export interface RequestTagDto {
@@ -338,4 +358,61 @@ export async function fetchRequestById(
 
   const body = (await response.json()) as RequestDetailResponse;
   return body.request;
+}
+
+/** PATCH `/requests/:id` — requiere JWT y ser dueño de la solicitud */
+export async function updateRequest(
+  token: string,
+  id: string,
+  payload: UpdateRequestPayload,
+): Promise<RequestWithRelations> {
+  const body: Record<string, unknown> = {};
+  if (payload.type !== undefined) body.type = payload.type;
+  if (payload.title !== undefined) body.title = normalizeRequestText(payload.title);
+  if (payload.description !== undefined)
+    body.description = normalizeRequestText(payload.description);
+  if (payload.difficulty !== undefined) body.difficulty = payload.difficulty;
+  if (payload.basePoints !== undefined) body.basePoints = payload.basePoints;
+  if (payload.participantsNeeded !== undefined)
+    body.participantsNeeded = payload.participantsNeeded;
+  if (payload.status !== undefined) body.status = payload.status;
+  if (payload.tagIds !== undefined) body.tagIds = payload.tagIds;
+
+  if (payload.deadline !== undefined) {
+    const iso = toIsoDeadline(payload.deadline);
+    if (iso) body.deadline = iso;
+  }
+
+  if (payload.economicBenefit !== undefined) {
+    body.economicBenefit = payload.economicBenefit;
+  }
+
+  if (process.env.NODE_ENV === "development") {
+    console.debug("[updateRequest] payload:", body);
+  }
+
+  const response = await fetch(`${API_BASE}/requests/${id}`, {
+    method: "PATCH",
+    headers: authHeaders(token),
+    body: JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    await parseError(response, "Error al actualizar la solicitud");
+  }
+
+  const data = (await response.json()) as RequestDetailResponse;
+  return data.request;
+}
+
+/** DELETE `/requests/:id` — requiere JWT y ser dueño de la solicitud */
+export async function deleteRequest(token: string, id: string): Promise<void> {
+  const response = await fetch(`${API_BASE}/requests/${id}`, {
+    method: "DELETE",
+    headers: authHeaders(token),
+  });
+
+  if (!response.ok) {
+    await parseError(response, "Error al eliminar la solicitud");
+  }
 }

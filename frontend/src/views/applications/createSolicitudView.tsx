@@ -18,6 +18,7 @@ import {
   useRequest,
   DIFFICULTY_LABELS,
   basePointsForDifficulty,
+  type SolicitudDetailData,
 } from "@/src/context/RequestContext";
 
 const TOTAL_STEPS = 3;
@@ -46,7 +47,36 @@ const initialForm: FormData = {
   participantes: 1,
 };
 
-export default function CreateSolicitudView() {
+function buildFormFromDetail(detail: SolicitudDetailData): FormData {
+  return {
+    tipo: detail.tipo,
+    titulo: detail.titulo,
+    descripcion: detail.descripcionCompleta,
+    tagIds: detail.tagIds,
+    dificultad: detail.dificultad,
+    fechaLimite: detail.fechaLimite,
+    beneficio:
+      detail.beneficioMonto != null && detail.beneficioMonto > 0
+        ? String(detail.beneficioMonto)
+        : "",
+    participantes: detail.participantes,
+  };
+}
+
+export interface CreateSolicitudViewProps {
+  /** "create" abre el formulario en blanco; "edit" precarga `initialData`. */
+  mode?: "create" | "edit";
+  /** Datos previos para precargar el formulario (requerido en modo edición). */
+  initialData?: SolicitudDetailData;
+  /** ID de la solicitud a editar (requerido en modo edición). */
+  requestId?: string;
+}
+
+export default function CreateSolicitudView({
+  mode = "create",
+  initialData,
+  requestId,
+}: CreateSolicitudViewProps = {}) {
   const router = useRouter();
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { tags: catalogTags, isLoading: tagsLoading, error: tagsError } =
@@ -54,6 +84,8 @@ export default function CreateSolicitudView() {
   const {
     createSolicitud,
     isCreating,
+    updateSolicitud,
+    isUpdating,
     requestRules,
     validateTitle,
     validateDescription,
@@ -63,10 +95,22 @@ export default function CreateSolicitudView() {
     validateDeadline,
   } = useRequest();
 
+  const isEdit = mode === "edit";
+  const isSubmitting = isEdit ? isUpdating : isCreating;
+
   const [step, setStep] = useState(1);
-  const [form, setForm] = useState<FormData>(initialForm);
+  const [form, setForm] = useState<FormData>(() =>
+    isEdit && initialData ? buildFormFromDetail(initialData) : initialForm,
+  );
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState("");
+
+  // Si se actualiza `initialData` (carga asíncrona del detalle) repoblamos el form.
+  useEffect(() => {
+    if (isEdit && initialData) {
+      setForm(buildFormFromDetail(initialData));
+    }
+  }, [isEdit, initialData]);
 
   const tagNameById = useMemo(() => {
     const map = new Map<string, string>();
@@ -77,9 +121,13 @@ export default function CreateSolicitudView() {
   useEffect(() => {
     if (authLoading) return;
     if (!isAuthenticated) {
-      router.replace("/forbidden?from=/applications/crear");
+      const from =
+        isEdit && requestId
+          ? `/applications/${requestId}/editar`
+          : "/applications/crear";
+      router.replace(`/forbidden?from=${encodeURIComponent(from)}`);
     }
-  }, [authLoading, isAuthenticated, router]);
+  }, [authLoading, isAuthenticated, router, isEdit, requestId]);
 
   // Para ASESORIA el backend fuerza participantes = 1, espejamos en UI
   useEffect(() => {
@@ -163,7 +211,7 @@ export default function CreateSolicitudView() {
 
     setSubmitError("");
     try {
-      await createSolicitud({
+      const payload = {
         tipo: form.tipo,
         titulo: form.titulo,
         descripcion: form.descripcion,
@@ -174,11 +222,22 @@ export default function CreateSolicitudView() {
         participantes:
           form.tipo === "Asesoría" ? 1 : form.participantes,
         beneficio: form.beneficio,
-      });
-      router.push("/applications");
+      };
+
+      if (isEdit && requestId) {
+        await updateSolicitud(requestId, payload);
+        router.push(`/applications/${requestId}`);
+      } else {
+        await createSolicitud(payload);
+        router.push("/applications");
+      }
     } catch (e) {
       setSubmitError(
-        e instanceof Error ? e.message : "No se pudo publicar la solicitud",
+        e instanceof Error
+          ? e.message
+          : isEdit
+            ? "No se pudo actualizar la solicitud"
+            : "No se pudo publicar la solicitud",
       );
     }
   };
@@ -206,7 +265,7 @@ export default function CreateSolicitudView() {
 
           <div className="flex items-center justify-between mb-2">
             <h1 className="text-2xl font-semibold text-gray-800">
-              Crear solicitud
+              {isEdit ? "Editar solicitud" : "Crear solicitud"}
             </h1>
             <span className="text-xs text-gray-400">
               Paso {step} de {TOTAL_STEPS}
@@ -686,15 +745,21 @@ export default function CreateSolicitudView() {
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={isCreating}
+                disabled={isSubmitting}
                 className="flex items-center gap-1.5 text-white font-semibold px-6 py-2.5 rounded-xl text-sm transition-colors bg-[#057f78] hover:bg-[#046860] disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {isCreating ? (
+                {isSubmitting ? (
                   <Loader2 size={16} className="animate-spin" />
                 ) : (
                   <Check size={16} strokeWidth={2} />
                 )}
-                {isCreating ? "Publicando…" : "Publicar solicitud"}
+                {isSubmitting
+                  ? isEdit
+                    ? "Guardando…"
+                    : "Publicando…"
+                  : isEdit
+                    ? "Guardar cambios"
+                    : "Publicar solicitud"}
               </button>
             )}
           </div>
