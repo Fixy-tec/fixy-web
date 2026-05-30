@@ -11,4 +11,5 @@ router.get("/:id", request_controller_1.getRequestById);
 router.post("/", auth_middleware_1.authenticateJWT, request_controller_1.createRequest);
 router.patch("/:id", auth_middleware_1.authenticateJWT, request_controller_1.updateRequest);
 router.delete("/:id", auth_middleware_1.authenticateJWT, request_controller_1.deleteRequest);
+router.post("/:id/extend-deadline", auth_middleware_1.authenticateJWT, request_controller_1.extendDeadline);
 exports.default = router;

@@ -38,6 +38,7 @@ exports.getRequests = getRequests;
 exports.getRequestById = getRequestById;
 exports.updateRequest = updateRequest;
 exports.deleteRequest = deleteRequest;
+exports.extendDeadline = extendDeadline;
 const requestsService = __importStar(require("../services/requests.service"));
 const client_1 = require("@prisma/client");
 const zod_1 = require("zod");
@@ -58,7 +59,7 @@ async function createRequest(req, res) {
             difficulty: validatedData.difficulty,
             basePoints: validatedData.basePoints,
             economicBenefit: validatedData.economicBenefit,
-            tagIds: validatedData.tags,
+            tagIds: validatedData.tagIds,
             deadline: validatedData.deadline
                 ? new Date(validatedData.deadline)
                 : undefined,
@@ -165,5 +166,38 @@ async function deleteRequest(req, res) {
     }
     catch (error) {
         return res.status(400).json({ message: error.message || "Failed to delete request" });
+    }
+}
+/**
+ * POST /requests/:id/extend-deadline
+ * Body: { deadline: ISO string }
+ * Sólo el dueño puede aplazar. Valida que newDeadline > current.
+ */
+async function extendDeadline(req, res) {
+    try {
+        const authReq = req;
+        const userId = authReq.user?.userId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+        const { id } = req.params;
+        const { deadline } = req.body;
+        if (!deadline || typeof deadline !== "string") {
+            return res.status(400).json({ message: "El campo 'deadline' es obligatorio" });
+        }
+        const parsed = new Date(deadline);
+        if (Number.isNaN(parsed.getTime())) {
+            return res.status(400).json({ message: "Fecha inválida" });
+        }
+        // Verify ownership
+        const request = await requestsService.getRequestById(id);
+        if (request.creatorId !== userId) {
+            return res.status(403).json({ message: "You can only update your own requests" });
+        }
+        const updated = await requestsService.extendDeadline(id, parsed);
+        return res.json({ request: updated });
+    }
+    catch (error) {
+        return res.status(400).json({ message: error.message || "Failed to extend deadline" });
     }
 }

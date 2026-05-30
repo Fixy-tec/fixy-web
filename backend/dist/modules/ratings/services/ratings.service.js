@@ -44,6 +44,7 @@ exports.deleteRating = deleteRating;
 exports.createApplicantRating = createApplicantRating;
 const ratingsRepository = __importStar(require("../repositories/ratings.repository"));
 const pointlogRepository = __importStar(require("../../pointlog/repositories/pointlog.repository"));
+const notificationsService = __importStar(require("../../notifications/services/notifications.service"));
 const pointsUtils = __importStar(require("../../../utils/points.utils"));
 const prisma_1 = __importDefault(require("../../../prisma"));
 async function createRating(input) {
@@ -93,6 +94,7 @@ async function createRating(input) {
     if (applicantUser) {
         const newPoints = Math.max(0, applicantUser.points + applicantPoints);
         const newMedal = pointsUtils.getMedalByPoints(newPoints);
+        const previousMedal = applicantUser.medal;
         // Update user
         await prisma_1.default.user.update({
             where: { id: applicantUser.id },
@@ -117,6 +119,26 @@ async function createRating(input) {
             await prisma_1.default.profile.update({
                 where: { userId: application.applicantId },
                 data: { avgRating: Math.round(avgRating * 100) / 100 }, // Round to 2 decimals
+            });
+        }
+        // ── Notificaciones (fire-and-forget) ────────────────────────────────
+        const rater = await prisma_1.default.user.findUnique({
+            where: { id: input.raterId },
+            select: { name: true },
+        });
+        void notificationsService.notifyRatingReceived({
+            ratedUserId: applicantUser.id,
+            raterName: rater?.name ?? "Alguien",
+            requestTitle: application.request.title,
+            requestId: application.request.id,
+            stars: input.stars,
+        });
+        if (newMedal !== previousMedal) {
+            void notificationsService.notifyRankUp({
+                userId: applicantUser.id,
+                newMedal,
+                previousMedal,
+                newPoints,
             });
         }
     }
@@ -180,13 +202,9 @@ async function createApplicantRating(input) {
         stars: input.stars,
         comment: input.comment,
     });
-    // Calculate and award points to the creator
-    const creatorPoints = pointsUtils.calculateCreatorPoints(application.request.basePoints);
-    // Apply rating modifier to creator points
-    const ratingModifier = input.stars === 5 ? 1.5 : input.stars === 4 ? 1.2 : input.stars === 3 ? 1 : input.stars === 2 ? -30 : -80;
-    const finalCreatorPoints = typeof ratingModifier === "number" && ratingModifier < 1
-        ? Math.round(creatorPoints + ratingModifier)
-        : Math.round(creatorPoints * ratingModifier);
+    // Puntos finales del creador (bonus +20% × modificador del rating, o
+    // penalización plana si el aplicante le puso 1★/2★).
+    const finalCreatorPoints = pointsUtils.calculateCreatorPointsWithRating(application.request.basePoints, input.stars);
     // Update creator user points and medal
     const creatorUser = await prisma_1.default.user.findUnique({
         where: { id: application.request.creatorId },
@@ -195,6 +213,7 @@ async function createApplicantRating(input) {
     if (creatorUser) {
         const newPoints = Math.max(0, creatorUser.points + finalCreatorPoints);
         const newMedal = pointsUtils.getMedalByPoints(newPoints);
+        const previousMedal = creatorUser.medal;
         // Update user
         await prisma_1.default.user.update({
             where: { id: creatorUser.id },
@@ -218,6 +237,26 @@ async function createApplicantRating(input) {
             await prisma_1.default.profile.update({
                 where: { userId: application.request.creatorId },
                 data: { avgRating: Math.round(avgRating * 100) / 100 }, // Round to 2 decimals
+            });
+        }
+        // ── Notificaciones (fire-and-forget) ────────────────────────────────
+        const rater = await prisma_1.default.user.findUnique({
+            where: { id: input.raterId },
+            select: { name: true },
+        });
+        void notificationsService.notifyRatingReceived({
+            ratedUserId: creatorUser.id,
+            raterName: rater?.name ?? "Alguien",
+            requestTitle: application.request.title,
+            requestId: application.request.id,
+            stars: input.stars,
+        });
+        if (newMedal !== previousMedal) {
+            void notificationsService.notifyRankUp({
+                userId: creatorUser.id,
+                newMedal,
+                previousMedal,
+                newPoints,
             });
         }
     }

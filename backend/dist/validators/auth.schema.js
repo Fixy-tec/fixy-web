@@ -13,8 +13,8 @@ exports.registerSchema = zod_1.z.object({
         .transform((value) => value.toLowerCase().trim()),
     name: zod_1.z
         .string()
-        .min(5, {
-        message: "Username must contain at least 5 characters",
+        .min(2, {
+        message: "Username must contain at least 2 characters",
     })
         .max(15, {
         message: "Username must not exceed 15 characters",

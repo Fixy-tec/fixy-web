@@ -23,6 +23,7 @@ exports.MEDAL_ORDER = exports.MEDAL_RANGES = void 0;
 exports.getBasePoints = getBasePoints;
 exports.calculateApplicantPoints = calculateApplicantPoints;
 exports.calculateCreatorPoints = calculateCreatorPoints;
+exports.calculateCreatorPointsWithRating = calculateCreatorPointsWithRating;
 exports.getMedalByPoints = getMedalByPoints;
 exports.getNextMedalInfo = getNextMedalInfo;
 exports.buildPointLogReason = buildPointLogReason;
@@ -92,13 +93,38 @@ function calculateApplicantPoints(basePoints, stars) {
     return Math.round(basePoints * (modifier || 1));
 }
 /**
- * Calcular puntos para el creador del request
+ * Calcular puntos para el creador del request (sin rating del aplicante).
+ * Es el bonus base: `basePoints × 1.2`.
  *
  * @param basePoints Puntos base del request
  * @returns Puntos base + 20%
  */
 function calculateCreatorPoints(basePoints) {
     return Math.round(basePoints * (1 + CREATOR_BONUS_PERCENTAGE));
+}
+/**
+ * Calcular puntos finales del creador en función del rating que le dio el
+ * aplicante. Mismo principio que `calculateApplicantPoints`:
+ *
+ *   - 1★/2★ → penalización plana (-80 / -30), SIN bonus de creador
+ *     (un rating malo no debería seguir regalando el +20%).
+ *   - 3★/4★/5★ → `(basePoints × 1.2) × modificador`
+ *
+ * Antes esta lógica vivía inline en `ratings.service.ts` mezclando suma con
+ * multiplicación y dejaba al creador con `basePoints × 1.2 - 80` cuando
+ * recibía 1★, lo que en niveles altos seguía siendo un saldo positivo.
+ */
+function calculateCreatorPointsWithRating(basePoints, stars) {
+    if (stars < 1 || stars > 5) {
+        throw new Error("Stars must be between 1 and 5");
+    }
+    const modifier = RATING_MODIFIERS[stars];
+    // 1★/2★: pérdida fija, sin bonus de creador.
+    if (modifier != null && modifier < 1) {
+        return modifier;
+    }
+    // 3★/4★/5★: bonus +20% × multiplicador del rating.
+    return Math.round(basePoints * (1 + CREATOR_BONUS_PERCENTAGE) * (modifier ?? 1));
 }
 /**
  * Obtener la medalla correspondiente a una cantidad de puntos

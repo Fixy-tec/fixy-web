@@ -67,7 +67,7 @@ exports.createRequestSchema = zod_1.z.object({
         .string()
         .datetime()
         .optional(),
-    tags: zod_1.z
+    tagIds: zod_1.z
         .array(zod_1.z.string().transform(tag_utils_1.normalizeTag))
         .min(1)
         .max(5),

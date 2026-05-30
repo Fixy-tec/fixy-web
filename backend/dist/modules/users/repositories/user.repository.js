@@ -54,6 +54,7 @@ async function updateUserProfile(userId, data) {
     return prisma_1.default.user.update({
         where: { id: userId },
         data: {
+            ...(data.name !== undefined ? { name: data.name } : {}),
             profile: {
                 upsert: {
                     create: profileData,

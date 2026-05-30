@@ -57,7 +57,12 @@ async function getRequestById(id) {
             creator: { include: { profile: true } },
             tags: { include: { tag: true } },
             applications: {
-                include: { applicant: { include: { profile: true } } },
+                // `ratings: true` permite al frontend saber quién ya calificó a quién
+                // (raterId === currentUserId) sin hacer un round-trip extra.
+                include: {
+                    applicant: { include: { profile: true } },
+                    ratings: true,
+                },
             },
         },
     });
@@ -95,8 +100,17 @@ async function updateRequest(id, data) {
     });
 }
 async function deleteRequest(id) {
-    return prisma_1.default.request.delete({
-        where: { id },
+    // Limpiamos las dependencias que no tienen ON DELETE CASCADE en el schema
+    // antes de borrar el Request, para evitar errores de FK
+    // (RequestTag_requestId_fkey, PointLog_requestId_fkey).
+    // Las Applications y Ratings sí tienen cascade, por lo que se borran solas.
+    return prisma_1.default.$transaction(async (tx) => {
+        await tx.requestTag.deleteMany({ where: { requestId: id } });
+        await tx.pointLog.updateMany({
+            where: { requestId: id },
+            data: { requestId: null },
+        });
+        return tx.request.delete({ where: { id } });
     });
 }
 async function getUserRequestCount(userId) {
