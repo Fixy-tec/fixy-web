@@ -7,7 +7,9 @@ import { Eye, EyeOff, UserPlus } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/src/context/AuthContext";
 
-const TECSUP_REGEX = /^[a-zA-Z0-9._%+-]+@tecsup\.edu\.pe$/;
+const TECSUP_REGEX = /^[A-Za-z]+@tecsup\.edu\.pe$/;
+const NAME_REGEX = /^[A-Za-z]+$/;
+const PASSWORD_HAS_LETTER_AND_NUMBER = /^(?=.*[A-Za-z])(?=.*\d)/;
 
 const RegisterView = () => {
   const [showPassword, setShowPassword] = useState(false);
@@ -25,11 +27,26 @@ const RegisterView = () => {
 
   const validate = () => {
     const newErrors: Record<string, string> = {};
-    if (form.name.trim().length < 3)
-      newErrors.name = "Ingresa tu nombre completo";
+
+    const trimmedName = form.name.trim();
+    if (trimmedName.length < 5)
+      newErrors.name = "El usuario debe tener al menos 5 caracteres";
+    else if (trimmedName.length > 15)
+      newErrors.name = "El usuario no puede tener más de 15 caracteres";
+    else if (!NAME_REGEX.test(trimmedName))
+      newErrors.name = "Solo se permiten letras (sin espacios ni números)";
+
     if (!TECSUP_REGEX.test(form.email))
-      newErrors.email = "Debe ser un correo @tecsup.edu.pe";
-    if (form.password.length < 8) newErrors.password = "Mínimo 8 caracteres";
+      newErrors.email =
+        "Debe ser un correo institucional con solo letras (ej. tunombre@tecsup.edu.pe)";
+
+    if (form.password.length < 8)
+      newErrors.password = "Mínimo 8 caracteres";
+    else if (form.password.length > 20)
+      newErrors.password = "Máximo 20 caracteres";
+    else if (!PASSWORD_HAS_LETTER_AND_NUMBER.test(form.password))
+      newErrors.password = "Debe contener letras y números";
+
     if (form.password !== form.confirmPassword)
       newErrors.confirmPassword = "Las contraseñas no coinciden";
     return newErrors;
@@ -47,8 +64,8 @@ const RegisterView = () => {
 
     try {
       await register({
-        name: form.name,
-        email: form.email,
+        name: form.name.trim(),
+        email: form.email.trim().toLowerCase(),
         password: form.password,
       });
       router.replace("/auth/on-boarding");
@@ -100,16 +117,17 @@ const RegisterView = () => {
               </div>
             )}
 
-            {/* Nombre completo */}
+            {/* Nombre de usuario */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Nombre completo
+                Nombre de usuario
               </label>
 
               <input
                 type="text"
-                placeholder="Ej. Gabriel Núñez Arenas"
+                placeholder="Ej. gabriel (5-15 letras, sin espacios)"
                 value={form.name}
+                maxLength={15}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className={`w-full px-4 py-2.5 rounded-lg border text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors ${
                   errors.name
@@ -153,8 +171,9 @@ const RegisterView = () => {
               <div className="relative">
                 <input
                   type={showPassword ? "text" : "password"}
-                  placeholder="Mínimo 8 caracteres"
+                  placeholder="8-20 caracteres, letras y números"
                   value={form.password}
+                  maxLength={20}
                   onChange={(e) =>
                     setForm({ ...form, password: e.target.value })
                   }

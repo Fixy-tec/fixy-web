@@ -11,10 +11,14 @@ import React, {
 import { useAuth } from "@/src/context/AuthContext";
 import {
   DEFAULT_AVATAR_PATHS,
+  PROFILE_RULES,
   fetchCurrentUser,
+  isWhatsappValid,
   normalizePeWhatsapp,
   toAbsoluteProfileImageUrl,
   updateCurrentUser,
+  validateBio,
+  validateOptionalUrl,
   type CurrentUserDto,
   type UpdateCurrentUserPayload,
 } from "@/src/lib/user";
@@ -32,6 +36,14 @@ interface UserProfileContextValue {
   defaultAvatarPaths: readonly string[];
   normalizeWhatsapp: (input: string) => string;
   toAbsoluteProfileImageUrl: (publicPath: string, origin?: string) => string;
+  /** Reglas de validación alineadas con el backend (`user.schema.ts`). */
+  profileRules: typeof PROFILE_RULES;
+  isWhatsappValid: (input: string) => boolean;
+  validateBio: (bio: string | undefined) => string | null;
+  validateOptionalUrl: (
+    url: string | undefined,
+    label: string,
+  ) => string | null;
 }
 
 const UserProfileContext = createContext<UserProfileContextValue | undefined>(
@@ -104,6 +116,10 @@ export function UserProfileProvider({
       defaultAvatarPaths: DEFAULT_AVATAR_PATHS,
       normalizeWhatsapp: normalizePeWhatsapp,
       toAbsoluteProfileImageUrl,
+      profileRules: PROFILE_RULES,
+      isWhatsappValid,
+      validateBio,
+      validateOptionalUrl,
     }),
     [
       profileUser,

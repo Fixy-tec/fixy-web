@@ -21,6 +21,109 @@ export const DIFFICULTY_LABELS: Record<number, string> = {
   5: "Muy difícil",
 };
 
+// ── Reglas (alineadas con backend/src/validators/request.schema.ts) ──────────
+export const REQUEST_RULES = {
+  TITLE_MIN: 5,
+  TITLE_MAX: 80,
+  TITLE_REGEX: /^[A-Za-z0-9\s*/.\-#!?]+$/u,
+  TITLE_MAX_SPECIAL_CHARS: 5,
+  DESCRIPTION_MIN: 10,
+  DESCRIPTION_MAX: 1000,
+  DESCRIPTION_REGEX:
+    /^[A-Za-z0-9\s*/.\-#!?,¿¡\p{Emoji_Presentation}\p{Extended_Pictographic}]+$/u,
+  DESCRIPTION_MAX_SPECIAL_CHARS: 15,
+  DESCRIPTION_MAX_EMOJIS: 5,
+  PARTICIPANTS_MIN: 1,
+  PARTICIPANTS_MAX: 10,
+  TAGS_MIN: 1,
+  TAGS_MAX: 5,
+} as const;
+
+const EMOJI_REGEX_GLOBAL =
+  /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu;
+const SPECIAL_CHARS_REGEX = /[*/.\-#!?]/g;
+
+function countMatches(text: string, regex: RegExp): number {
+  const matches = text.match(regex);
+  return matches ? matches.length : 0;
+}
+
+/** Misma normalización que el backend (`normalizeText`). */
+export function normalizeRequestText(text: string): string {
+  return text.trim().replace(/\s+/g, " ");
+}
+
+export function validateTitle(title: string): string | null {
+  const value = normalizeRequestText(title);
+  if (value.length < REQUEST_RULES.TITLE_MIN)
+    return `El título debe tener al menos ${REQUEST_RULES.TITLE_MIN} caracteres`;
+  if (value.length > REQUEST_RULES.TITLE_MAX)
+    return `El título no puede exceder ${REQUEST_RULES.TITLE_MAX} caracteres`;
+  if (!REQUEST_RULES.TITLE_REGEX.test(value))
+    return "El título solo permite letras (A-Z), números y signos básicos (*/.,-#!?)";
+  if (EMOJI_REGEX_GLOBAL.test(value))
+    return "El título no puede contener emojis";
+  if (countMatches(value, SPECIAL_CHARS_REGEX) > REQUEST_RULES.TITLE_MAX_SPECIAL_CHARS)
+    return `El título admite máximo ${REQUEST_RULES.TITLE_MAX_SPECIAL_CHARS} caracteres especiales`;
+  return null;
+}
+
+export function validateDescription(description: string): string | null {
+  const value = normalizeRequestText(description);
+  if (value.length < REQUEST_RULES.DESCRIPTION_MIN)
+    return `La descripción debe tener al menos ${REQUEST_RULES.DESCRIPTION_MIN} caracteres`;
+  if (value.length > REQUEST_RULES.DESCRIPTION_MAX)
+    return `La descripción no puede exceder ${REQUEST_RULES.DESCRIPTION_MAX} caracteres`;
+  if (!REQUEST_RULES.DESCRIPTION_REGEX.test(value))
+    return "La descripción solo permite letras (A-Z), números y signos básicos (*/.,-#!?¿¡)";
+  if (countMatches(value, SPECIAL_CHARS_REGEX) > REQUEST_RULES.DESCRIPTION_MAX_SPECIAL_CHARS)
+    return `La descripción admite máximo ${REQUEST_RULES.DESCRIPTION_MAX_SPECIAL_CHARS} caracteres especiales`;
+  if (countMatches(value, EMOJI_REGEX_GLOBAL) > REQUEST_RULES.DESCRIPTION_MAX_EMOJIS)
+    return `La descripción admite máximo ${REQUEST_RULES.DESCRIPTION_MAX_EMOJIS} emojis`;
+  return null;
+}
+
+export function validateTagIds(tagIds: string[]): string | null {
+  if (tagIds.length < REQUEST_RULES.TAGS_MIN) return "Selecciona al menos un tag";
+  if (tagIds.length > REQUEST_RULES.TAGS_MAX)
+    return `Máximo ${REQUEST_RULES.TAGS_MAX} tags`;
+  return null;
+}
+
+export function validateParticipants(n: number): string | null {
+  if (!Number.isFinite(n) || n < REQUEST_RULES.PARTICIPANTS_MIN)
+    return "Al menos 1 participante";
+  if (n > REQUEST_RULES.PARTICIPANTS_MAX)
+    return `Máximo ${REQUEST_RULES.PARTICIPANTS_MAX} participantes`;
+  return null;
+}
+
+export function validateEconomicBenefit(raw: string | undefined): string | null {
+  if (!raw || !raw.trim()) return null;
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return "Monto inválido";
+  if (n <= 0) return "El monto debe ser mayor a 0";
+  return null;
+}
+
+/**
+ * Convierte una fecha `YYYY-MM-DD` (del `<input type="date">`) a ISO 8601
+ * `YYYY-MM-DDT00:00:00.000Z`, formato requerido por `z.string().datetime()`.
+ */
+export function toIsoDeadline(date: string | undefined): string | undefined {
+  if (!date?.trim()) return undefined;
+  if (date.includes("T")) return date;
+  const parsed = new Date(`${date}T00:00:00.000Z`);
+  if (Number.isNaN(parsed.getTime())) return undefined;
+  return parsed.toISOString();
+}
+
+export function validateDeadline(date: string | undefined): string | null {
+  if (!date?.trim()) return "La fecha límite es obligatoria";
+  if (!toIsoDeadline(date)) return "Fecha inválida";
+  return null;
+}
+
 export interface CreateRequestPayload {
   type: RequestTypeApi;
   title: string;
@@ -125,20 +228,19 @@ export async function createRequest(
   token: string,
   payload: CreateRequestPayload,
 ): Promise<RequestDto> {
-  const requestBody = {
+  const isoDeadline = toIsoDeadline(payload.deadline);
+  const requestBody: Record<string, unknown> = {
     type: payload.type,
-    title: payload.title,
-    description: payload.description,
+    title: normalizeRequestText(payload.title),
+    description: normalizeRequestText(payload.description),
     difficulty: payload.difficulty,
     basePoints: payload.basePoints,
     participantsNeeded: payload.participantsNeeded,
-    deadline: payload.deadline,
     tagIds: payload.tagIds,
-    ...(payload.tags?.length ? { tags: payload.tags } : {}),
-    ...(payload.economicBenefit != null && payload.economicBenefit > 0
-      ? { economicBenefit: payload.economicBenefit }
-      : {}),
   };
+  if (isoDeadline) requestBody.deadline = isoDeadline;
+  if (payload.economicBenefit != null && payload.economicBenefit > 0)
+    requestBody.economicBenefit = payload.economicBenefit;
 
   if (process.env.NODE_ENV === "development") {
     console.debug("[createRequest] payload:", requestBody);

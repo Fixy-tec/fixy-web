@@ -31,6 +31,10 @@ const OnboardingView = () => {
     defaultAvatarPaths,
     normalizeWhatsapp,
     toAbsoluteProfileImageUrl,
+    profileRules,
+    isWhatsappValid,
+    validateBio,
+    validateOptionalUrl,
   } = useUserProfile();
 
   const [step, setStep] = useState(1);
@@ -53,28 +57,55 @@ const OnboardingView = () => {
   }, [authLoading, isAuthenticated, router]);
 
   const toggleTag = (name: string) => {
-    setData((prev) => ({
-      ...prev,
-      tagNames: prev.tagNames.includes(name)
-        ? prev.tagNames.filter((t) => t !== name)
-        : [...prev.tagNames, name],
-    }));
+    setData((prev) => {
+      if (prev.tagNames.includes(name)) {
+        return {
+          ...prev,
+          tagNames: prev.tagNames.filter((t) => t !== name),
+        };
+      }
+      if (prev.tagNames.length >= profileRules.TAGS_MAX) return prev;
+      return { ...prev, tagNames: [...prev.tagNames, name] };
+    });
   };
 
-  const whatsappOk = () => {
-    const n = normalizeWhatsapp(data.whatsapp);
-    return n.length >= 12;
-  };
+  const whatsappOk = () => isWhatsappValid(normalizeWhatsapp(data.whatsapp));
+
+  const bioError = validateBio(data.bio);
+  const githubError = validateOptionalUrl(data.githubUrl, "GitHub");
+  const linkedinError = validateOptionalUrl(data.linkedinUrl, "LinkedIn");
+  const portfolioError = validateOptionalUrl(data.portfolioUrl, "Portafolio");
 
   const canNext = () => {
-    if (step === 1) return data.tagNames.length > 0;
+    if (step === 1)
+      return (
+        data.tagNames.length > 0 &&
+        data.tagNames.length <= profileRules.TAGS_MAX
+      );
     if (step === 2) return data.avatarPath !== "";
-    if (step === 3) return whatsappOk();
+    if (step === 3) return whatsappOk() && !bioError;
+    if (step === 4) return !githubError && !linkedinError && !portfolioError;
     return true;
   };
 
   const handleFinish = async () => {
     setSubmitError(null);
+
+    if (githubError || linkedinError || portfolioError) {
+      setSubmitError(githubError ?? linkedinError ?? portfolioError);
+      return;
+    }
+    if (bioError) {
+      setSubmitError(bioError);
+      return;
+    }
+    if (!whatsappOk()) {
+      setSubmitError(
+        "Ingresa un WhatsApp peruano válido (9 dígitos, comienza con 9)",
+      );
+      return;
+    }
+
     try {
       await saveProfile({
         tags: [...new Set(data.tagNames)],
@@ -105,16 +136,14 @@ const OnboardingView = () => {
     <div className="min-h-screen flex items-center justify-center bg-[#fefefe] px-4 py-12">
       <div className="w-full max-w-lg">
         <div className="text-center mb-8">
-          <Link href="/">
-            <Image
-              src="/gaaa.png"
-              alt="Fixy Logo"
-              width={130}
-              height={48}
-              className="object-contain h-10 w-auto mx-auto mb-4"
-              priority
-            />
-          </Link>
+          <Image
+            src="/gaaa.png"
+            alt="Fixy Logo"
+            width={130}
+            height={48}
+            className="object-contain h-10 w-auto mx-auto mb-4"
+            priority
+          />
 
           <div className="flex items-center justify-center gap-2 mb-2">
             {Array.from({ length: TOTAL_STEPS }).map((_, i) => (
@@ -146,7 +175,8 @@ const OnboardingView = () => {
                 ¿Cuáles son tus tecnologías?
               </h2>
               <p className="text-sm text-gray-500 mb-6">
-                Selecciona al menos una desde el catálogo de Fixy (tabla Tag).
+                Selecciona entre 1 y {profileRules.TAGS_MAX} tags del catálogo
+                de Fixy.
               </p>
               {tagsLoading ? (
                 <div className="flex justify-center py-12">
@@ -156,12 +186,16 @@ const OnboardingView = () => {
                 <div className="flex flex-wrap gap-2">
                   {tags.map((tag) => {
                     const selected = data.tagNames.includes(tag.name);
+                    const limitReached =
+                      !selected &&
+                      data.tagNames.length >= profileRules.TAGS_MAX;
                     return (
                       <button
                         key={tag.id}
                         type="button"
                         onClick={() => toggleTag(tag.name)}
-                        className="px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-150"
+                        disabled={limitReached}
+                        className="px-3 py-1.5 rounded-lg text-sm font-medium border transition-all duration-150 disabled:opacity-40 disabled:cursor-not-allowed"
                         style={{
                           background: selected ? "#057f78" : "white",
                           color: selected ? "white" : "#4b5563",
@@ -181,12 +215,10 @@ const OnboardingView = () => {
                   })}
                 </div>
               )}
-              {data.tagNames.length > 0 && (
-                <p className="text-xs text-[#057f78] mt-4">
-                  {data.tagNames.length} seleccionada
-                  {data.tagNames.length > 1 ? "s" : ""}
-                </p>
-              )}
+              <p className="text-xs text-[#057f78] mt-4">
+                {data.tagNames.length}/{profileRules.TAGS_MAX} seleccionada
+                {data.tagNames.length === 1 ? "" : "s"}
+              </p>
             </div>
           )}
 
@@ -259,7 +291,7 @@ const OnboardingView = () => {
                 </div>
                 {!whatsappOk() && data.whatsapp.length > 0 && (
                   <p className="text-xs text-amber-600 mt-1">
-                    Ingresa un número válido (9 dígitos).
+                    Ingresa un número válido (9 dígitos, comienza con 9).
                   </p>
                 )}
                 <p className="text-xs text-gray-400 mt-1">
@@ -270,19 +302,33 @@ const OnboardingView = () => {
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Descripción personal{" "}
-                  <span className="text-gray-400 font-normal">(opcional)</span>
+                  <span className="text-gray-400 font-normal">
+                    (opcional, {profileRules.BIO_MIN}-{profileRules.BIO_MAX}{" "}
+                    caracteres si la completas)
+                  </span>
                 </label>
                 <textarea
                   placeholder="Ej: Estudiante de DDS apasionado por el backend y las APIs..."
                   value={data.bio}
                   onChange={(e) => setData({ ...data, bio: e.target.value })}
-                  maxLength={200}
+                  maxLength={profileRules.BIO_MAX}
                   rows={3}
-                  className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3] transition-colors resize-none"
+                  className={`w-full px-4 py-2.5 rounded-lg border text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors resize-none ${
+                    bioError
+                      ? "border-red-300 focus:ring-red-200 focus:border-red-400"
+                      : "border-gray-200 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3]"
+                  }`}
                 />
-                <p className="text-xs text-gray-400 mt-1 text-right">
-                  {data.bio.length}/200
-                </p>
+                <div className="flex justify-between mt-1">
+                  {bioError ? (
+                    <p className="text-xs text-red-500">{bioError}</p>
+                  ) : (
+                    <span />
+                  )}
+                  <p className="text-xs text-gray-400">
+                    {data.bio.length}/{profileRules.BIO_MAX}
+                  </p>
+                </div>
               </div>
             </div>
           )}
@@ -303,18 +349,21 @@ const OnboardingView = () => {
                   label: "GitHub",
                   field: "githubUrl" as const,
                   placeholder: "https://github.com/tuusuario",
+                  error: githubError,
                 },
                 {
                   label: "LinkedIn",
                   field: "linkedinUrl" as const,
                   placeholder: "https://linkedin.com/in/tuusuario",
+                  error: linkedinError,
                 },
                 {
                   label: "Portafolio",
                   field: "portfolioUrl" as const,
                   placeholder: "https://tuportafolio.com",
+                  error: portfolioError,
                 },
-              ].map(({ label, field, placeholder }) => (
+              ].map(({ label, field, placeholder, error }) => (
                 <div key={field}>
                   <label className="block text-sm font-medium text-gray-700 mb-1.5">
                     {label}{" "}
@@ -329,8 +378,15 @@ const OnboardingView = () => {
                     onChange={(e) =>
                       setData({ ...data, [field]: e.target.value })
                     }
-                    className="w-full px-4 py-2.5 rounded-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3] transition-colors"
+                    className={`w-full px-4 py-2.5 rounded-lg border text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors ${
+                      error
+                        ? "border-red-300 focus:ring-red-200 focus:border-red-400"
+                        : "border-gray-200 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3]"
+                    }`}
                   />
+                  {error && (
+                    <p className="text-xs text-red-500 mt-1">{error}</p>
+                  )}
                 </div>
               ))}
 

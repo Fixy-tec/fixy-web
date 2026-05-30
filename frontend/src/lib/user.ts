@@ -81,6 +81,55 @@ export interface UpdateCurrentUserPayload {
   tags: string[];
 }
 
+// ── Reglas (alineadas con backend/src/validators/user.schema.ts) ─────────────
+export const PROFILE_RULES = {
+  WHATSAPP_REGEX: /^(?:\+51)?9\d{8}$/,
+  BIO_MIN: 10,
+  BIO_MAX: 300,
+  BIO_REGEX:
+    /^[A-Za-z0-9\s*.,\-/#@!?¿¡\p{Emoji_Presentation}\p{Extended_Pictographic}]+$/u,
+  BIO_MAX_EMOJIS: 5,
+  TAGS_MAX: 5,
+} as const;
+
+const EMOJI_REGEX =
+  /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu;
+
+export function isWhatsappValid(input: string): boolean {
+  if (!input) return false;
+  return PROFILE_RULES.WHATSAPP_REGEX.test(input);
+}
+
+/** Devuelve un mensaje de error o `null` si la bio es válida (o vacía/opcional). */
+export function validateBio(bio: string | undefined): string | null {
+  if (!bio || !bio.trim()) return null;
+  const value = bio.trim().replace(/\s+/g, " ");
+  if (value.length < PROFILE_RULES.BIO_MIN)
+    return `La bio debe tener al menos ${PROFILE_RULES.BIO_MIN} caracteres`;
+  if (value.length > PROFILE_RULES.BIO_MAX)
+    return `La bio no puede exceder ${PROFILE_RULES.BIO_MAX} caracteres`;
+  if (!PROFILE_RULES.BIO_REGEX.test(value))
+    return "La bio solo permite letras (A-Z), números y signos básicos (.,-/#@!?¿¡)";
+  const emojis = value.match(EMOJI_REGEX);
+  if (emojis && emojis.length > PROFILE_RULES.BIO_MAX_EMOJIS)
+    return `La bio admite máximo ${PROFILE_RULES.BIO_MAX_EMOJIS} emojis`;
+  return null;
+}
+
+/** Devuelve mensaje de error o `null` si la URL es válida (o vacía/opcional). */
+export function validateOptionalUrl(
+  url: string | undefined,
+  label: string,
+): string | null {
+  if (!url || !url.trim()) return null;
+  try {
+    new URL(url.trim());
+    return null;
+  } catch {
+    return `${label} debe ser una URL válida (incluye https://)`;
+  }
+}
+
 function authHeaders(token: string): HeadersInit {
   return {
     "Content-Type": "application/json",
@@ -210,18 +259,22 @@ export async function updateCurrentUser(
   token: string,
   payload: UpdateCurrentUserPayload,
 ): Promise<CurrentUserDto> {
+  // Construye el body solo con los campos definidos para evitar enviar
+  // strings vacíos a los validadores .url() del backend.
+  const body: Record<string, unknown> = {
+    whatsapp: payload.whatsapp,
+    tagIds: payload.tags,
+  };
+  if (payload.avatarUrl) body.avatarUrl = payload.avatarUrl;
+  if (payload.bio) body.bio = payload.bio;
+  if (payload.portfolioUrl) body.portfolioUrl = payload.portfolioUrl;
+  if (payload.linkedinUrl) body.linkedinUrl = payload.linkedinUrl;
+  if (payload.githubUrl) body.githubUrl = payload.githubUrl;
+
   const response = await fetch(`${API_BASE}/users/me`, {
     method: "PATCH",
     headers: authHeaders(token),
-    body: JSON.stringify({
-      avatarUrl: payload.avatarUrl,
-      whatsapp: payload.whatsapp,
-      bio: payload.bio,
-      portfolioUrl: payload.portfolioUrl,
-      linkedinUrl: payload.linkedinUrl,
-      githubUrl: payload.githubUrl,
-      tags: payload.tags,
-    }),
+    body: JSON.stringify(body),
   });
 
   if (!response.ok) {
@@ -231,6 +284,6 @@ export async function updateCurrentUser(
     );
   }
 
-  const body = (await response.json()) as CurrentUserResponse;
-  return body.user;
+  const responseBody = (await response.json()) as CurrentUserResponse;
+  return responseBody.user;
 }

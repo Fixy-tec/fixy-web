@@ -19,6 +19,13 @@ import {
   mapTipoToApi,
   DIFFICULTY_BASE_POINTS,
   DIFFICULTY_LABELS,
+  REQUEST_RULES,
+  validateTitle,
+  validateDescription,
+  validateTagIds,
+  validateParticipants,
+  validateEconomicBenefit,
+  validateDeadline,
   type CreateRequestPayload,
   type RequestDto,
 } from "@/src/lib/request";
@@ -35,7 +42,12 @@ export type {
   RequestDto,
 } from "@/src/lib/request";
 
-export { DIFFICULTY_BASE_POINTS, DIFFICULTY_LABELS, basePointsForDifficulty };
+export {
+  DIFFICULTY_BASE_POINTS,
+  DIFFICULTY_LABELS,
+  basePointsForDifficulty,
+  REQUEST_RULES,
+};
 export type { SolicitudDetailData };
 
 export interface CreateSolicitudFormInput {
@@ -70,6 +82,14 @@ interface RequestContextValue {
   isLoadingExplore: boolean;
   exploreError: string | null;
   refreshExplore: () => Promise<void>;
+  /** Reglas de validación alineadas con `request.schema.ts`. */
+  requestRules: typeof REQUEST_RULES;
+  validateTitle: (title: string) => string | null;
+  validateDescription: (description: string) => string | null;
+  validateTagIds: (tagIds: string[]) => string | null;
+  validateParticipants: (n: number) => string | null;
+  validateEconomicBenefit: (raw: string | undefined) => string | null;
+  validateDeadline: (date: string | undefined) => string | null;
 }
 
 const RequestContext = createContext<RequestContextValue | undefined>(undefined);
@@ -270,6 +290,13 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
       isLoadingExplore,
       exploreError,
       refreshExplore,
+      requestRules: REQUEST_RULES,
+      validateTitle,
+      validateDescription,
+      validateTagIds,
+      validateParticipants,
+      validateEconomicBenefit,
+      validateDeadline,
     }),
     [
       isCreating,

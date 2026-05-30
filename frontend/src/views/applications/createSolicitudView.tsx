@@ -33,6 +33,8 @@ interface FormData {
   participantes: number;
 }
 
+type FieldErrors = Partial<Record<keyof FormData, string>>;
+
 const initialForm: FormData = {
   tipo: "",
   titulo: "",
@@ -49,13 +51,21 @@ export default function CreateSolicitudView() {
   const { isAuthenticated, isLoading: authLoading } = useAuth();
   const { tags: catalogTags, isLoading: tagsLoading, error: tagsError } =
     useTags();
-  const { createSolicitud, isCreating } = useRequest();
+  const {
+    createSolicitud,
+    isCreating,
+    requestRules,
+    validateTitle,
+    validateDescription,
+    validateTagIds,
+    validateParticipants,
+    validateEconomicBenefit,
+    validateDeadline,
+  } = useRequest();
 
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormData>(initialForm);
-  const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>(
-    {},
-  );
+  const [errors, setErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState("");
 
   const tagNameById = useMemo(() => {
@@ -71,48 +81,64 @@ export default function CreateSolicitudView() {
     }
   }, [authLoading, isAuthenticated, router]);
 
+  // Para ASESORIA el backend fuerza participantes = 1, espejamos en UI
+  useEffect(() => {
+    if (form.tipo === "Asesoría" && form.participantes !== 1) {
+      setForm((prev) => ({ ...prev, participantes: 1 }));
+    }
+  }, [form.tipo, form.participantes]);
+
   const toggleTag = (tagId: string) => {
-    setForm((prev) => ({
-      ...prev,
-      tagIds: prev.tagIds.includes(tagId)
-        ? prev.tagIds.filter((id) => id !== tagId)
-        : [...prev.tagIds, tagId],
-    }));
+    setForm((prev) => {
+      if (prev.tagIds.includes(tagId)) {
+        return { ...prev, tagIds: prev.tagIds.filter((id) => id !== tagId) };
+      }
+      if (prev.tagIds.length >= requestRules.TAGS_MAX) return prev;
+      return { ...prev, tagIds: [...prev.tagIds, tagId] };
+    });
+  };
+
+  const collectErrors = (forStep: number | "all"): FieldErrors => {
+    const newErrors: FieldErrors = {};
+
+    if (forStep === 1 || forStep === "all") {
+      if (!form.tipo) newErrors.tipo = "Selecciona un tipo";
+    }
+
+    if (forStep === 2 || forStep === "all") {
+      const titleErr = validateTitle(form.titulo);
+      if (titleErr) newErrors.titulo = titleErr;
+
+      const descErr = validateDescription(form.descripcion);
+      if (descErr) newErrors.descripcion = descErr;
+
+      const tagsErr = validateTagIds(form.tagIds);
+      if (tagsErr) newErrors.tagIds = tagsErr;
+    }
+
+    if (forStep === 3 || forStep === "all") {
+      const deadlineErr = validateDeadline(form.fechaLimite);
+      if (deadlineErr) newErrors.fechaLimite = deadlineErr;
+
+      const partsErr = validateParticipants(form.participantes);
+      if (partsErr) newErrors.participantes = partsErr;
+
+      const benefitErr = validateEconomicBenefit(form.beneficio);
+      if (benefitErr) newErrors.beneficio = benefitErr;
+    }
+
+    return newErrors;
   };
 
   const validateStep = (forStep = step) => {
-    const newErrors: Partial<Record<keyof FormData, string>> = {};
-    if (forStep === 1 && !form.tipo) newErrors.tipo = "Selecciona un tipo";
-    if (forStep === 2) {
-      if (!form.titulo.trim()) newErrors.titulo = "El título es obligatorio";
-      if (form.titulo.length > 80) newErrors.titulo = "Máximo 80 caracteres";
-      if (!form.descripcion.trim())
-        newErrors.descripcion = "La descripción es obligatoria";
-      if (form.descripcion.length > 1000)
-        newErrors.descripcion = "Máximo 1000 caracteres";
-      if (form.tagIds.length === 0)
-        newErrors.tagIds = "Selecciona al menos un tag";
-    }
-    if (forStep === 3 && !form.fechaLimite)
-      newErrors.fechaLimite = "La fecha límite es obligatoria";
+    const newErrors = collectErrors(forStep);
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
-  /** Valida los 3 pasos antes de publicar (el estado del form sí se conserva entre pasos). */
+  /** Valida los 3 pasos antes de publicar. */
   const validateAll = () => {
-    const newErrors: Partial<Record<keyof FormData, string>> = {};
-    if (!form.tipo) newErrors.tipo = "Selecciona un tipo";
-    if (!form.titulo.trim()) newErrors.titulo = "El título es obligatorio";
-    if (form.titulo.length > 80) newErrors.titulo = "Máximo 80 caracteres";
-    if (!form.descripcion.trim())
-      newErrors.descripcion = "La descripción es obligatoria";
-    if (form.descripcion.length > 1000)
-      newErrors.descripcion = "Máximo 1000 caracteres";
-    if (form.tagIds.length === 0)
-      newErrors.tagIds = "Selecciona al menos un tag";
-    if (!form.fechaLimite)
-      newErrors.fechaLimite = "La fecha límite es obligatoria";
+    const newErrors = collectErrors("all");
     setErrors(newErrors);
     return { ok: Object.keys(newErrors).length === 0, errors: newErrors };
   };
@@ -145,7 +171,8 @@ export default function CreateSolicitudView() {
         tagNames,
         dificultad: form.dificultad,
         fechaLimite: form.fechaLimite,
-        participantes: form.participantes,
+        participantes:
+          form.tipo === "Asesoría" ? 1 : form.participantes,
         beneficio: form.beneficio,
       });
       router.push("/applications");
@@ -343,9 +370,14 @@ export default function CreateSolicitudView() {
 
               {/* Tags */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Tags requeridos
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-sm font-medium text-gray-700">
+                    Tags requeridos
+                  </label>
+                  <span className="text-xs text-gray-400">
+                    {form.tagIds.length}/{requestRules.TAGS_MAX}
+                  </span>
+                </div>
                 {form.tagIds.length > 0 && (
                   <div className="flex flex-wrap gap-1.5 mb-2">
                     {form.tagIds.map((tagId) => (
@@ -377,16 +409,21 @@ export default function CreateSolicitudView() {
                   <div className="flex flex-wrap gap-1.5">
                     {catalogTags
                       .filter((t) => !form.tagIds.includes(t.id))
-                      .map((tag) => (
-                        <button
-                          key={tag.id}
-                          type="button"
-                          onClick={() => toggleTag(tag.id)}
-                          className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-[#1a4ca3] hover:text-[#1a4ca3] transition-colors"
-                        >
-                          + {tag.name}
-                        </button>
-                      ))}
+                      .map((tag) => {
+                        const limitReached =
+                          form.tagIds.length >= requestRules.TAGS_MAX;
+                        return (
+                          <button
+                            key={tag.id}
+                            type="button"
+                            onClick={() => toggleTag(tag.id)}
+                            disabled={limitReached}
+                            className="text-xs px-2.5 py-1 rounded-lg border border-gray-200 text-gray-500 hover:border-[#1a4ca3] hover:text-[#1a4ca3] transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:text-gray-500"
+                          >
+                            + {tag.name}
+                          </button>
+                        );
+                      })}
                   </div>
                 )}
                 {errors.tagIds && (
@@ -484,37 +521,65 @@ export default function CreateSolicitudView() {
               {/* Participantes */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Cantidad de participantes
-                </label>
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setForm({
-                        ...form,
-                        participantes: Math.max(1, form.participantes - 1),
-                      })
-                    }
-                    className="w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:border-[#1a4ca3] hover:text-[#1a4ca3] transition-colors flex items-center justify-center font-medium"
-                  >
-                    −
-                  </button>
-                  <span className="text-sm font-semibold text-gray-700 w-4 text-center">
-                    {form.participantes}
+                  Cantidad de participantes{" "}
+                  <span className="text-gray-400 font-normal">
+                    (máx {requestRules.PARTICIPANTS_MAX})
                   </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setForm({
-                        ...form,
-                        participantes: form.participantes + 1,
-                      })
-                    }
-                    className="w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:border-[#1a4ca3] hover:text-[#1a4ca3] transition-colors flex items-center justify-center font-medium"
-                  >
-                    +
-                  </button>
-                </div>
+                </label>
+                {form.tipo === "Asesoría" ? (
+                  <p className="text-xs text-gray-500">
+                    Las asesorías siempre son 1 a 1.
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            participantes: Math.max(
+                              requestRules.PARTICIPANTS_MIN,
+                              form.participantes - 1,
+                            ),
+                          })
+                        }
+                        disabled={
+                          form.participantes <= requestRules.PARTICIPANTS_MIN
+                        }
+                        className="w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:border-[#1a4ca3] hover:text-[#1a4ca3] transition-colors flex items-center justify-center font-medium disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:text-gray-500"
+                      >
+                        −
+                      </button>
+                      <span className="text-sm font-semibold text-gray-700 w-4 text-center">
+                        {form.participantes}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setForm({
+                            ...form,
+                            participantes: Math.min(
+                              requestRules.PARTICIPANTS_MAX,
+                              form.participantes + 1,
+                            ),
+                          })
+                        }
+                        disabled={
+                          form.participantes >= requestRules.PARTICIPANTS_MAX
+                        }
+                        className="w-9 h-9 rounded-lg border border-gray-200 text-gray-500 hover:border-[#1a4ca3] hover:text-[#1a4ca3] transition-colors flex items-center justify-center font-medium disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:border-gray-200 disabled:hover:text-gray-500"
+                      >
+                        +
+                      </button>
+                    </div>
+                    {errors.participantes && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.participantes}
+                      </p>
+                    )}
+                  </>
+                )}
               </div>
 
               {/* Beneficio económico */}
@@ -531,17 +596,28 @@ export default function CreateSolicitudView() {
                     type="number"
                     placeholder="0.00"
                     min={0}
+                    step="0.01"
                     value={form.beneficio}
                     onChange={(e) =>
                       setForm({ ...form, beneficio: e.target.value })
                     }
-                    className="flex-1 px-4 py-2.5 rounded-r-lg border border-gray-200 text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3] transition-colors"
+                    className={`flex-1 px-4 py-2.5 rounded-r-lg border text-sm text-gray-800 placeholder-gray-400 focus:outline-none focus:ring-2 transition-colors ${
+                      errors.beneficio
+                        ? "border-red-300 focus:ring-red-200"
+                        : "border-gray-200 focus:ring-[#1a4ca3]/30 focus:border-[#1a4ca3]"
+                    }`}
                   />
                 </div>
-                <p className="text-xs text-gray-400 mt-1">
-                  Si lo dejas vacío se mostrará como "Voluntario / Sin
-                  remuneración".
-                </p>
+                {errors.beneficio ? (
+                  <p className="text-xs text-red-500 mt-1">
+                    {errors.beneficio}
+                  </p>
+                ) : (
+                  <p className="text-xs text-gray-400 mt-1">
+                    Si lo dejas vacío se mostrará como "Voluntario / Sin
+                    remuneración".
+                  </p>
+                )}
               </div>
 
               {submitError && (
