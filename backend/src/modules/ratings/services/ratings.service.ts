@@ -1,5 +1,6 @@
 import * as ratingsRepository from "../repositories/ratings.repository";
 import * as pointlogRepository from "../../pointlog/repositories/pointlog.repository";
+import * as notificationsService from "../../notifications/services/notifications.service";
 import * as pointsUtils from "../../../utils/points.utils";
 import prisma from "../../../prisma";
 
@@ -78,6 +79,7 @@ export async function createRating(input: CreateRatingInput) {
   if (applicantUser) {
     const newPoints = Math.max(0, applicantUser.points + applicantPoints);
     const newMedal = pointsUtils.getMedalByPoints(newPoints);
+    const previousMedal = applicantUser.medal;
 
     // Update user
     await prisma.user.update({
@@ -105,6 +107,27 @@ export async function createRating(input: CreateRatingInput) {
       await prisma.profile.update({
         where: { userId: application.applicantId },
         data: { avgRating: Math.round(avgRating * 100) / 100 }, // Round to 2 decimals
+      });
+    }
+
+    // ── Notificaciones (fire-and-forget) ────────────────────────────────
+    const rater = await prisma.user.findUnique({
+      where: { id: input.raterId },
+      select: { name: true },
+    });
+    void notificationsService.notifyRatingReceived({
+      ratedUserId: applicantUser.id,
+      raterName: rater?.name ?? "Alguien",
+      requestTitle: application.request.title,
+      requestId: application.request.id,
+      stars: input.stars,
+    });
+    if (newMedal !== previousMedal) {
+      void notificationsService.notifyRankUp({
+        userId: applicantUser.id,
+        newMedal,
+        previousMedal,
+        newPoints,
       });
     }
   }
@@ -201,6 +224,7 @@ export async function createApplicantRating(input: CreateRatingInput) {
   if (creatorUser) {
     const newPoints = Math.max(0, creatorUser.points + finalCreatorPoints);
     const newMedal = pointsUtils.getMedalByPoints(newPoints);
+    const previousMedal = creatorUser.medal;
 
     // Update user
     await prisma.user.update({
@@ -227,6 +251,27 @@ export async function createApplicantRating(input: CreateRatingInput) {
       await prisma.profile.update({
         where: { userId: application.request.creatorId },
         data: { avgRating: Math.round(avgRating * 100) / 100 }, // Round to 2 decimals
+      });
+    }
+
+    // ── Notificaciones (fire-and-forget) ────────────────────────────────
+    const rater = await prisma.user.findUnique({
+      where: { id: input.raterId },
+      select: { name: true },
+    });
+    void notificationsService.notifyRatingReceived({
+      ratedUserId: creatorUser.id,
+      raterName: rater?.name ?? "Alguien",
+      requestTitle: application.request.title,
+      requestId: application.request.id,
+      stars: input.stars,
+    });
+    if (newMedal !== previousMedal) {
+      void notificationsService.notifyRankUp({
+        userId: creatorUser.id,
+        newMedal,
+        previousMedal,
+        newPoints,
       });
     }
   }

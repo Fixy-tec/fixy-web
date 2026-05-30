@@ -1,4 +1,5 @@
 import * as applicationsRepository from "../repositories/applications.repository";
+import * as notificationsService from "../../notifications/services/notifications.service";
 import { ApplicationStatus, RequestStatus } from "@prisma/client";
 import prisma from "../../../prisma";
 
@@ -61,7 +62,29 @@ export async function createApplication(input: CreateApplicationInput) {
   // NOTA: NO bloqueamos por cantidad de postulantes. El cupo
   // (`participantsNeeded`) solo limita cuántos puede ACEPTAR el creador, no
   // cuántos pueden postularse. Esto permite mantener una bolsa de candidatos.
-  return applicationsRepository.createApplication(input);
+  const created = await applicationsRepository.createApplication(input);
+
+  // Notificación al creador del request — fire-and-forget (errores no rompen
+  // la creación de la postulación).
+  const requestWithCreator = await prisma.request.findUnique({
+    where: { id: input.requestId },
+    select: { id: true, title: true, creatorId: true },
+  });
+  const applicantUser = await prisma.user.findUnique({
+    where: { id: input.applicantId },
+    select: { name: true },
+  });
+  if (requestWithCreator && applicantUser) {
+    void notificationsService.notifyApplicationReceived({
+      creatorId: requestWithCreator.creatorId,
+      applicantName: applicantUser.name,
+      requestTitle: requestWithCreator.title,
+      requestId: requestWithCreator.id,
+      applicationId: created.id,
+    });
+  }
+
+  return created;
 }
 
 export async function getApplications(filters?: {
@@ -136,11 +159,39 @@ export async function updateApplication(id: string, input: UpdateApplicationInpu
       return updatedApp;
     });
 
+    // Notif al aplicante: "te aceptaron".
+    void notificationsService.notifyApplicationAccepted({
+      applicantId: result.applicantId,
+      requestTitle: result.request.title,
+      requestId: result.requestId,
+      applicationId: result.id,
+    });
+
     return result;
   }
 
   // For other status changes, use regular update
   const result = await applicationsRepository.updateApplication(id, input);
+
+  // Notif al aplicante si pasamos a RECHAZADA (desde otro estado distinto).
+  if (
+    input.status === "RECHAZADA" &&
+    application.status !== "RECHAZADA"
+  ) {
+    const request = await prisma.request.findUnique({
+      where: { id: application.requestId },
+      select: { id: true, title: true },
+    });
+    if (request) {
+      void notificationsService.notifyApplicationRejected({
+        applicantId: application.applicantId,
+        requestTitle: request.title,
+        requestId: request.id,
+        applicationId: application.id,
+      });
+    }
+  }
+
   return result;
 }
 

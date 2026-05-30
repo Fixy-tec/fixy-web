@@ -9,6 +9,7 @@ import tagRoutes from "./routes/tag.routes";
 import ratingsRoutes from "./modules/ratings/routes/ratings.routes";
 import recommendationsRoutes from "./modules/recommendations/routes/recommendations.routes";
 import PointlogRoutes from "./modules/pointlog/routes/pointlog.routes";
+import notificationsRoutes from "./modules/notifications/routes/notifications.routes";
 
 dotenv.config();
 
@@ -38,6 +39,7 @@ app.use("/api/tags", tagRoutes);
 app.use("/api/ratings", ratingsRoutes);
 app.use("/api/recommendations", recommendationsRoutes);
 app.use("/api/pointlog", PointlogRoutes);
+app.use("/api/notifications", notificationsRoutes);
 
 const port = process.env.PORT ? Number(process.env.PORT) : 4000;
 app.listen(port, () => {

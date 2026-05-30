@@ -1,11 +1,22 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { TrendingUp, Sparkles, Bell, Flame, ChevronRight } from "lucide-react";
+import { TrendingUp, Sparkles, Bell, Flame, ChevronRight, Check, Loader2 } from "lucide-react";
 import Image from "next/image";
+import { useNotifications } from "@/src/context/NotificationContext";
+import {
+  formatRelativeTime,
+  getNotificationStyle,
+} from "@/src/lib/notification";
 
 const HomeLoggedView = () => {
   const router = useRouter();
+  const {
+    notifications,
+    isLoading: notifsLoading,
+    markAsSeen,
+  } = useNotifications();
+  const recentNotifications = notifications.slice(0, 5);
 
   return (
     <div className="min-h-screen bg-[#f6f8fb]">
@@ -106,30 +117,93 @@ const HomeLoggedView = () => {
 
           {/* ACTIVIDAD */}
           <div className="lg:col-span-6 bg-white border border-gray-100 rounded-[28px] p-6 shadow-sm">
-            <div className="flex items-center gap-2 mb-5">
-              <Bell size={16} className="text-gray-400" />
-
-              <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
-                Actividad reciente
-              </p>
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <Bell size={16} className="text-gray-400" />
+                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+                  Actividad reciente
+                </p>
+              </div>
+              {recentNotifications.length > 0 && (
+                <span className="text-xs bg-gray-50 text-gray-500 px-2 py-0.5 rounded-full font-medium">
+                  {notifications.length}
+                </span>
+              )}
             </div>
 
-            <div className="space-y-3">
-              {[
-                "Tu postulación fue aceptada",
-                "Recibiste una calificación de 5 estrellas",
-                "Subiste a Plata II",
-              ].map((item) => (
-                <div
-                  key={item}
-                  className="flex items-center gap-3 p-4 rounded-2xl bg-gray-50"
-                >
-                  <div className="w-2 h-2 rounded-full bg-[#009c70]" />
-
-                  <p className="text-sm text-gray-600">{item}</p>
+            {notifsLoading && recentNotifications.length === 0 ? (
+              <div className="flex justify-center py-10">
+                <Loader2 className="w-5 h-5 animate-spin text-[#1a4ca3]" />
+              </div>
+            ) : recentNotifications.length === 0 ? (
+              <div className="text-center py-10">
+                <div className="inline-flex w-12 h-12 items-center justify-center rounded-full bg-gray-50 mb-3">
+                  <Bell size={18} className="text-gray-300" />
                 </div>
-              ))}
-            </div>
+                <p className="text-sm text-gray-500 font-medium">
+                  Sin actividad reciente
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Cuando algo pase con tus solicitudes lo verás aquí.
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentNotifications.map((n) => {
+                  const style = getNotificationStyle(n.type);
+                  const requestId =
+                    typeof n.data?.requestId === "string"
+                      ? n.data.requestId
+                      : null;
+                  const clickable = !!requestId;
+                  return (
+                    <div
+                      key={n.id}
+                      onClick={
+                        clickable
+                          ? () => router.push(`/applications/${requestId}`)
+                          : undefined
+                      }
+                      className={`group flex items-start gap-3 p-4 rounded-2xl bg-gray-50 transition-colors ${
+                        clickable ? "hover:bg-gray-100 cursor-pointer" : ""
+                      }`}
+                    >
+                      <div
+                        className="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0"
+                        style={{
+                          background: `${style.color}15`,
+                          color: style.color,
+                        }}
+                      >
+                        {style.emoji}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-gray-700 leading-tight">
+                          {n.title}
+                        </p>
+                        <p className="text-xs text-gray-500 mt-0.5 leading-snug line-clamp-2">
+                          {n.message}
+                        </p>
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          {formatRelativeTime(n.createdAt)}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          void markAsSeen(n.id);
+                        }}
+                        className="shrink-0 text-gray-300 hover:text-green-600 hover:bg-green-100 p-1.5 rounded transition-colors"
+                        title="Marcar como visto"
+                      >
+                        <Check size={14} strokeWidth={2.5} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* COMUNIDAD */}

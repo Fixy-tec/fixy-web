@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Power, User } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
+import NotificationBell from "@/src/components/notificationBell";
 
 const navLinks = [
   { href: "/home", label: "Inicio" },
@@ -81,6 +82,9 @@ export default function NavBarComponent() {
           <div className="hidden md:flex items-center gap-2">
             {isLoggedIn ? (
               <>
+                {/* Notificaciones */}
+                <NotificationBell />
+
                 {/* Perfil */}
                 <Link
                   href={user ? `/users/${user.id}` : "/auth/login"}
@@ -133,35 +137,38 @@ export default function NavBarComponent() {
             )}
           </div>
 
-          {/* Hamburger — mobile */}
-          <button
-            onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden text-gray-600 hover:text-[#1a4ca3] p-2 rounded-lg transition-colors"
-            aria-label="Toggle menu"
-          >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          {/* Right side — mobile */}
+          <div className="md:hidden flex items-center gap-1">
+            {isLoggedIn && <NotificationBell />}
+            <button
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className="text-gray-600 hover:text-[#1a4ca3] p-2 rounded-lg transition-colors"
+              aria-label="Toggle menu"
             >
-              {isMenuOpen ? (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              ) : (
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M4 6h16M4 12h16M4 18h16"
-                />
-              )}
-            </svg>
-          </button>
+              <svg
+                className="w-6 h-6"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                {isMenuOpen ? (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                ) : (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M4 6h16M4 12h16M4 18h16"
+                  />
+                )}
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
 
