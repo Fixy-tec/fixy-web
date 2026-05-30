@@ -51,11 +51,16 @@ export async function getRating(id: string) {
   });
 }
 
-export async function getRatingByApplicationId(applicationId: string) {
-  return prisma.rating.findUnique({
+export async function getRatingsByApplicationId(applicationId: string) {
+  return prisma.rating.findMany({
     where: { applicationId },
+    include: {
+      rater: true,
+      rated: true,
+    },
   });
 }
+
 
 export async function getRatingsByRatedUser(userId: string) {
   return prisma.rating.findMany({
@@ -111,6 +116,24 @@ export async function getApplicationForRating(applicationId: string) {
       request: {
         include: { creator: true },
       },
+    },
+  });
+}
+
+export async function getRatingsByApplication(applicationId: string) {
+  return prisma.rating.findMany({
+    where: { applicationId },
+  });
+}
+
+export async function getRatingByApplicationAndRater(
+  applicationId: string,
+  raterId: string
+) {
+  return prisma.rating.findFirst({
+    where: {
+      applicationId,
+      raterId,
     },
   });
 }

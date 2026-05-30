@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import * as ratingsService from "../services/ratings.service";
 import { AuthRequest } from "../../../middlewares/auth.middleware";
+import { createRatingSchema, updateRatingSchema } from "../../../validators/rating.schema";
+import { ZodError } from "zod";
 
 export async function createRating(req: Request, res: Response) {
   try {
@@ -10,21 +12,23 @@ export async function createRating(req: Request, res: Response) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const { applicationId, stars, comment } = req.body;
-
-    if (!applicationId || stars === undefined) {
-      return res.status(400).json({ message: "ApplicationId and stars are required" });
-    }
+    // Validate input
+    const validatedData = createRatingSchema.parse(req.body);
 
     const result = await ratingsService.createRating({
-      applicationId,
+      applicationId: validatedData.applicationId,
       raterId,
-      stars,
-      comment,
+      stars: validatedData.stars,
+      comment: validatedData.comment,
     });
 
     return res.status(201).json(result);
   } catch (error: any) {
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        message: error.issues[0]?.message || "Validation error",
+      });
+    }
     return res.status(400).json({ message: error.message || "Failed to create rating" });
   }
 }
@@ -58,15 +62,22 @@ export async function updateRating(req: Request, res: Response) {
     }
 
     const { id } = req.params;
-    const { stars, comment } = req.body;
+
+    // Validate input
+    const validatedData = updateRatingSchema.parse(req.body);
 
     const result = await ratingsService.updateRating(id, userId, {
-      stars,
-      comment,
+      stars: validatedData.stars,
+      comment: validatedData.comment,
     });
 
     return res.json(result);
   } catch (error: any) {
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        message: error.issues[0]?.message || "Validation error",
+      });
+    }
     return res.status(400).json({ message: error.message || "Failed to update rating" });
   }
 }
@@ -84,5 +95,37 @@ export async function deleteRating(req: Request, res: Response) {
     return res.json({ message: "Rating deleted successfully" });
   } catch (error: any) {
     return res.status(400).json({ message: error.message || "Failed to delete rating" });
+  }
+}
+
+/**
+ * POST /api/ratings/applicant - Crear rating del aplicante al creador
+ */
+export async function createApplicantRating(req: Request, res: Response) {
+  try {
+    const authReq = req as AuthRequest;
+    const applicantId = authReq.user?.userId;
+    if (!applicantId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    // Validate input
+    const validatedData = createRatingSchema.parse(req.body);
+
+    const result = await ratingsService.createApplicantRating({
+      applicationId: validatedData.applicationId,
+      raterId: applicantId,
+      stars: validatedData.stars,
+      comment: validatedData.comment,
+    });
+
+    return res.status(201).json(result);
+  } catch (error: any) {
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        message: error.issues[0]?.message || "Validation error",
+      });
+    }
+    return res.status(400).json({ message: error.message || "Failed to create rating" });
   }
 }

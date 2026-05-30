@@ -63,7 +63,7 @@ export async function createRequest(input: CreateRequestInput) {
   }
 
   if (input.basePoints < 0) {
-    throw new Error("Base points must be greater than 0");
+    throw new Error("Base points must be 0 or greater");
   }
 
   if (input.participantsNeeded < 1) {
@@ -74,6 +74,12 @@ export async function createRequest(input: CreateRequestInput) {
     throw new Error("At least one tag is required");
   }
 
+  // For ASESORIA type, force participantsNeeded to 1
+  if (input.type === "ASESORIA" && input.participantsNeeded !== 1) {
+    input.participantsNeeded = 1;
+  }
+
+  // Validate max 5 requests per user
   const userRequestCount = await requestsRepository.getUserRequestCount(
     input.creatorId,
   );
@@ -123,6 +129,10 @@ export async function updateRequest(id: string, input: UpdateRequestInput) {
   if (input.participantsNeeded !== undefined) {
     if (input.participantsNeeded < 1) {
       throw new Error("At least 1 participant is required");
+    }
+    // For ASESORIA type, ensure participantsNeeded is 1
+    if (request.type === "ASESORIA" && input.participantsNeeded !== 1) {
+      input.participantsNeeded = 1;
     }
   }
 

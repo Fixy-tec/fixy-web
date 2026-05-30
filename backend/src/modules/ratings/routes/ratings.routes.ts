@@ -7,8 +7,11 @@ const router = Router();
 // All routes require authentication
 router.use(authenticateJWT);
 
-// Create rating
+// Create rating (creator rates applicant)
 router.post("/", ratingsController.createRating);
+
+// Create rating (applicant rates creator)
+router.post("/applicant", ratingsController.createApplicantRating);
 
 // Get rating by ID
 router.get("/:id", ratingsController.getRating);
