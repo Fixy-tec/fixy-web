@@ -30,6 +30,8 @@ export async function getUserWithProfile(userId: string) {
 }
 
 export async function updateUserProfile(userId: string, data: {
+  /** User.name (único en BD) — opcional para no forzar renombrado */
+  name?: string;
   avatarUrl?: string;
   whatsapp: string;  // Required to match schema validation
   bio?: string;
@@ -61,6 +63,7 @@ export async function updateUserProfile(userId: string, data: {
   return prisma.user.update({
     where: { id: userId },
     data: {
+      ...(data.name !== undefined ? { name: data.name } : {}),
       profile: {
         upsert: {
           create: profileData as any,

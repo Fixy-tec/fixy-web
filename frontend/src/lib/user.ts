@@ -71,6 +71,8 @@ export interface CurrentUserResponse {
 }
 
 export interface UpdateCurrentUserPayload {
+  /** User.name (opcional — solo se envía si cambia) */
+  name?: string;
   avatarUrl?: string;
   whatsapp: string;
   bio?: string;
@@ -83,6 +85,9 @@ export interface UpdateCurrentUserPayload {
 
 // ── Reglas (alineadas con backend/src/validators/user.schema.ts) ─────────────
 export const PROFILE_RULES = {
+  NAME_MIN: 2,
+  NAME_MAX: 15,
+  NAME_REGEX: /^[A-Za-z]+$/,
   WHATSAPP_REGEX: /^(?:\+51)?9\d{8}$/,
   BIO_MIN: 10,
   BIO_MAX: 300,
@@ -94,6 +99,19 @@ export const PROFILE_RULES = {
 
 const EMOJI_REGEX =
   /[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu;
+
+/** Devuelve un mensaje de error o `null` si el nombre es válido. */
+export function validateName(name: string | undefined): string | null {
+  const value = (name ?? "").trim();
+  if (!value) return "El nombre es obligatorio";
+  if (value.length < PROFILE_RULES.NAME_MIN)
+    return `El nombre debe tener al menos ${PROFILE_RULES.NAME_MIN} caracteres`;
+  if (value.length > PROFILE_RULES.NAME_MAX)
+    return `El nombre no puede exceder ${PROFILE_RULES.NAME_MAX} caracteres`;
+  if (!PROFILE_RULES.NAME_REGEX.test(value))
+    return "El nombre solo permite letras (sin espacios, números ni emojis)";
+  return null;
+}
 
 export function isWhatsappValid(input: string): boolean {
   if (!input) return false;
@@ -277,6 +295,7 @@ export async function updateCurrentUser(
     whatsapp: payload.whatsapp,
     tagIds: payload.tags,
   };
+  if (payload.name) body.name = payload.name;
   if (payload.avatarUrl) body.avatarUrl = payload.avatarUrl;
   if (payload.bio) body.bio = payload.bio;
   if (payload.portfolioUrl) body.portfolioUrl = payload.portfolioUrl;

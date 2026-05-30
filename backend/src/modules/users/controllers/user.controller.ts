@@ -40,6 +40,7 @@ export async function updateCurrentUser(
       await userService.updateCurrentUser(
         userId,
         {
+          name: validatedData.name,
           avatarUrl: validatedData.avatarUrl,
           whatsapp: validatedData.whatsapp,
           bio: validatedData.bio,
@@ -71,6 +72,10 @@ export async function updateCurrentUser(
 
     if (error instanceof userService.InvalidTagNamesError) {
       return res.status(400).json({ message: error.message });
+    }
+
+    if (error instanceof userService.UsernameTakenError) {
+      return res.status(409).json({ message: error.message });
     }
 
     console.error("[PATCH /users/me] Unexpected error:", error);

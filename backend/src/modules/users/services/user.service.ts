@@ -1,4 +1,5 @@
 import prisma from "../../../prisma";
+import { Prisma } from "@prisma/client";
 import * as userRepository from "../repositories/user.repository";
 import * as tagRepository from "../../tags/repositories/tag.repository";
 
@@ -40,7 +41,15 @@ export class InvalidTagNamesError extends Error {
   }
 }
 
+export class UsernameTakenError extends Error {
+  constructor() {
+    super("Ese nombre de usuario ya está en uso");
+    this.name = "UsernameTakenError";
+  }
+}
+
 export async function updateCurrentUser(userId: string, data: {
+  name?: string;
   avatarUrl?: string;
   whatsapp: string;  // Required to match schema validation
   bio?: string;
@@ -67,16 +76,38 @@ export async function updateCurrentUser(userId: string, data: {
     }
   }
 
-  const updated = await userRepository.updateUserProfile(userId, {
-    avatarUrl: data.avatarUrl,
-    whatsapp: data.whatsapp,
-    bio: data.bio,
-    portfolioUrl: data.portfolioUrl,
-    linkedinUrl: data.linkedinUrl,
-    githubUrl: data.githubUrl,
-    tagIds,
-  });
-  const publicUser = toPublicUser(updated);
-  if (!publicUser) return null;
-  return attachUserStats(publicUser);
+  // Si se intenta cambiar el nombre, verificamos duplicados explícitamente
+  // (la BD no marca `name` como @unique en User, pero queremos evitar choques).
+  if (data.name !== undefined) {
+    const taken = await prisma.user.findFirst({
+      where: { name: data.name, NOT: { id: userId } },
+      select: { id: true },
+    });
+    if (taken) throw new UsernameTakenError();
+  }
+
+  try {
+    const updated = await userRepository.updateUserProfile(userId, {
+      name: data.name,
+      avatarUrl: data.avatarUrl,
+      whatsapp: data.whatsapp,
+      bio: data.bio,
+      portfolioUrl: data.portfolioUrl,
+      linkedinUrl: data.linkedinUrl,
+      githubUrl: data.githubUrl,
+      tagIds,
+    });
+    const publicUser = toPublicUser(updated);
+    if (!publicUser) return null;
+    return attachUserStats(publicUser);
+  } catch (error) {
+    // Por si en el futuro se marca `User.name` como @unique
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === "P2002"
+    ) {
+      throw new UsernameTakenError();
+    }
+    throw error;
+  }
 }

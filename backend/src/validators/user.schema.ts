@@ -1,8 +1,10 @@
 import { z } from "zod";
 
 import {
+  containsEmoji,
   countEmojis,
   normalizeText,
+  normalizeUsername,
 } from "../utils/text.utils";
 
 const BIO_REGEX =
@@ -26,6 +28,24 @@ const urlOrAbsolutePath = z
 
 export const updateProfileSchema =
   z.object({
+
+    /** Mismas reglas que `auth.schema.ts > registerSchema.name` */
+    name: z
+      .string()
+      .min(2, {
+        message: "Username must contain at least 2 characters",
+      })
+      .max(15, {
+        message: "Username must not exceed 15 characters",
+      })
+      .regex(/^[A-Za-z]+$/, {
+        message: "Username can contain only letters",
+      })
+      .refine((value) => !containsEmoji(value), {
+        message: "Username cannot contain emojis",
+      })
+      .transform((value) => normalizeUsername(value))
+      .optional(),
 
     whatsapp: z
       .string()

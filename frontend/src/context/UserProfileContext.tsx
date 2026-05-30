@@ -18,6 +18,7 @@ import {
   toProfileImagePath,
   updateCurrentUser,
   validateBio,
+  validateName,
   validateOptionalUrl,
   type CurrentUserDto,
   type UpdateCurrentUserPayload,
@@ -40,6 +41,7 @@ interface UserProfileContextValue {
   /** Reglas de validación alineadas con el backend (`user.schema.ts`). */
   profileRules: typeof PROFILE_RULES;
   isWhatsappValid: (input: string) => boolean;
+  validateName: (name: string | undefined) => string | null;
   validateBio: (bio: string | undefined) => string | null;
   validateOptionalUrl: (
     url: string | undefined,
@@ -119,6 +121,7 @@ export function UserProfileProvider({
       toProfileImagePath,
       profileRules: PROFILE_RULES,
       isWhatsappValid,
+      validateName,
       validateBio,
       validateOptionalUrl,
     }),
