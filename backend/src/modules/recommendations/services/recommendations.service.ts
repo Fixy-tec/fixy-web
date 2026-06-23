@@ -1,4 +1,5 @@
 import * as recommendationsRepository from "../repositories/recommendations.repository";
+import prisma from "../../../prisma";
 
 export async function getRecommendedRequests(userId: string, limit: number = 10) {
   if (!userId) {
@@ -22,4 +23,21 @@ export async function getMatchPercentage(userId: string, requestId: string) {
   }
 
   return recommendationsRepository.calculateMatchPercentage(userId, requestId);
+}
+
+/**
+ * Verify that a user owns a request
+ * Used for authorization checks on sensitive endpoints
+ */
+export async function verifyRequestOwnership(requestId: string, userId: string): Promise<boolean> {
+  try {
+    const request = await prisma.request.findUnique({
+      where: { id: requestId },
+      select: { creatorId: true },
+    });
+    
+    return request?.creatorId === userId;
+  } catch (error) {
+    return false;
+  }
 }

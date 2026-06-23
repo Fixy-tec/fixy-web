@@ -2,6 +2,7 @@ import * as requestsRepository from "../repositories/requests.repository";
 import * as tagRepository from "../../tags/repositories/tag.repository";
 import { RequestType, RequestStatus } from "@prisma/client";
 import prisma from "../../../prisma";
+import { notifyAdminDashboardUpdate } from "../../../realtime/admin.realtime";
 
 interface CreateRequestInput {
   creatorId: string;
@@ -90,7 +91,9 @@ export async function createRequest(input: CreateRequestInput) {
 
   const tagIds = await resolveTagIds(input.tagIds);
 
-  return requestsRepository.createRequest({ ...input, tagIds });
+  const created = await requestsRepository.createRequest({ ...input, tagIds });
+  void notifyAdminDashboardUpdate();
+  return created;
 }
 
 /**
@@ -106,7 +109,7 @@ export async function createRequest(input: CreateRequestInput) {
  */
 export async function expireOverdueRequests(): Promise<void> {
   const now = new Date();
-  await prisma.$transaction([
+  const [completed, cancelled] = await prisma.$transaction([
     prisma.request.updateMany({
       where: {
         deadline: { lt: now },
@@ -124,6 +127,10 @@ export async function expireOverdueRequests(): Promise<void> {
       data: { status: "CANCELADA", isExpired: true },
     }),
   ]);
+
+  if (completed.count > 0 || cancelled.count > 0) {
+    void notifyAdminDashboardUpdate();
+  }
 }
 
 export async function getRequests(filters?: {
@@ -220,7 +227,14 @@ export async function updateRequest(id: string, input: UpdateRequestInput) {
     tagIds = await resolveTagIds(input.tagIds);
   }
 
-  return requestsRepository.updateRequest(id, { ...input, tagIds });
+  const previousStatus = request.status;
+  const updated = await requestsRepository.updateRequest(id, { ...input, tagIds });
+
+  if (input.status !== undefined && input.status !== previousStatus) {
+    void notifyAdminDashboardUpdate();
+  }
+
+  return updated;
 }
 
 export async function deleteRequest(id: string) {

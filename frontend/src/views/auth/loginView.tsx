@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Eye, EyeOff, LogIn } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/src/context/AuthContext";
+import { isAdmin } from "@/src/lib/admin";
 
 const TECSUP_REGEX = /^[a-zA-Z0-9._%+-]+@tecsup\.edu\.pe$/;
 
@@ -36,11 +37,13 @@ const LoginView = () => {
     setApiError("");
 
     try {
-      await login({
+      const loggedUser = await login({
         email: form.email.trim(),
         password: form.password,
       });
-      router.push("/home");
+      router.push(
+        isAdmin(loggedUser) ? "/admin/dashboard" : "/home",
+      );
     } catch (error: unknown) {
       setApiError(
         error instanceof Error ? error.message : "Error al iniciar sesión",

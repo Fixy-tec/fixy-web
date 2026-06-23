@@ -47,6 +47,7 @@ exports.deleteRequest = deleteRequest;
 const requestsRepository = __importStar(require("../repositories/requests.repository"));
 const tagRepository = __importStar(require("../../tags/repositories/tag.repository"));
 const prisma_1 = __importDefault(require("../../../prisma"));
+const admin_realtime_1 = require("../../../realtime/admin.realtime");
 class InvalidTagIdsError extends Error {
     constructor() {
         super("Uno o más tags no existen en el catálogo");
@@ -96,7 +97,9 @@ async function createRequest(input) {
         throw new Error("Users can have a maximum of 5 active requests");
     }
     const tagIds = await resolveTagIds(input.tagIds);
-    return requestsRepository.createRequest({ ...input, tagIds });
+    const created = await requestsRepository.createRequest({ ...input, tagIds });
+    void (0, admin_realtime_1.notifyAdminDashboardUpdate)();
+    return created;
 }
 /**
  * Auto-expiración perezosa: cada vez que se lee la lista o un detalle de
@@ -111,7 +114,7 @@ async function createRequest(input) {
  */
 async function expireOverdueRequests() {
     const now = new Date();
-    await prisma_1.default.$transaction([
+    const [completed, cancelled] = await prisma_1.default.$transaction([
         prisma_1.default.request.updateMany({
             where: {
                 deadline: { lt: now },
@@ -129,6 +132,9 @@ async function expireOverdueRequests() {
             data: { status: "CANCELADA", isExpired: true },
         }),
     ]);
+    if (completed.count > 0 || cancelled.count > 0) {
+        void (0, admin_realtime_1.notifyAdminDashboardUpdate)();
+    }
 }
 async function getRequests(filters) {
     await expireOverdueRequests();
@@ -198,7 +204,12 @@ async function updateRequest(id, input) {
         }
         tagIds = await resolveTagIds(input.tagIds);
     }
-    return requestsRepository.updateRequest(id, { ...input, tagIds });
+    const previousStatus = request.status;
+    const updated = await requestsRepository.updateRequest(id, { ...input, tagIds });
+    if (input.status !== undefined && input.status !== previousStatus) {
+        void (0, admin_realtime_1.notifyAdminDashboardUpdate)();
+    }
+    return updated;
 }
 async function deleteRequest(id) {
     const request = await requestsRepository.getRequestById(id);

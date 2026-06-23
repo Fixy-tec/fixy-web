@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Power, User } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
+import { isAdmin } from "@/src/lib/admin";
 import NotificationBell from "@/src/components/notificationBell";
 
 const navLinks = [
@@ -75,6 +76,14 @@ export default function NavBarComponent() {
                   {label}
                 </Link>
               ))}
+              {isAdmin(user) && (
+                <Link
+                  href="/admin/dashboard"
+                  className="text-sm font-semibold px-4 py-2 rounded-lg transition-all duration-150 bg-[#effaf8] text-[#057f78] border border-[#057f78]/20 hover:bg-[#057f78] hover:text-white"
+                >
+                  Admin
+                </Link>
+              )}
             </div>
           )}
 
@@ -192,6 +201,15 @@ export default function NavBarComponent() {
                     {label}
                   </Link>
                 ))}
+                {isAdmin(user) && (
+                  <Link
+                    href="/admin/dashboard"
+                    className="block py-2 px-3 text-sm font-semibold text-[#057f78] bg-[#effaf8] rounded-lg border border-[#057f78]/20"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Admin
+                  </Link>
+                )}
                 <div className="pt-2 border-t border-gray-100 space-y-1">
                   <Link
                     href={user ? `/users/${user.id}` : "/auth/login"}

@@ -37,6 +37,8 @@ exports.getRecommendedRequests = getRecommendedRequests;
 exports.getRecommendedApplicants = getRecommendedApplicants;
 exports.getMatchPercentage = getMatchPercentage;
 const recommendationsService = __importStar(require("../services/recommendations.service"));
+const zod_1 = require("zod");
+const recommendations_schema_1 = require("../../../validators/recommendations.schema");
 async function getRecommendedRequests(req, res) {
     try {
         const authReq = req;
@@ -44,11 +46,18 @@ async function getRecommendedRequests(req, res) {
         if (!userId) {
             return res.status(401).json({ message: "Unauthorized" });
         }
-        const limit = parseInt(req.query.limit) || 10;
+        // Validate query parameters
+        const validated = recommendations_schema_1.getRecommendedRequestsSchema.parse(req.query);
+        const limit = validated.limit;
         const recommendations = await recommendationsService.getRecommendedRequests(userId, limit);
         return res.json({ recommendations });
     }
     catch (error) {
+        if (error instanceof zod_1.ZodError) {
+            return res.status(400).json({
+                message: error.issues[0]?.message || "Invalid query parameters",
+            });
+        }
         return res.status(400).json({ message: error.message || "Failed to get recommendations" });
     }
 }
@@ -60,8 +69,11 @@ async function getRecommendedApplicants(req, res) {
             return res.status(401).json({ message: "Unauthorized" });
         }
         const { requestId } = req.params;
-        // Verify user owns the request
-        // This should be done in a service, but for now verify here
+        // Verify user owns the request (security check)
+        const isOwner = await recommendationsService.verifyRequestOwnership(requestId, userId);
+        if (!isOwner) {
+            return res.status(403).json({ message: "Forbidden: You can only view applicants for your own requests" });
+        }
         const applicants = await recommendationsService.getRecommendedApplicants(requestId);
         return res.json({ applicants });
     }
@@ -71,7 +83,16 @@ async function getRecommendedApplicants(req, res) {
 }
 async function getMatchPercentage(req, res) {
     try {
+        const authReq = req;
+        const authenticatedUserId = authReq.user?.userId;
+        if (!authenticatedUserId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
         const { userId, requestId } = req.params;
+        // Security: only allow user to calculate their own match percentage
+        if (userId !== authenticatedUserId) {
+            return res.status(403).json({ message: "Forbidden: You can only view your own match percentage" });
+        }
         const matchPercentage = await recommendationsService.getMatchPercentage(userId, requestId);
         return res.json({ matchPercentage });
     }

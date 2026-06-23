@@ -3,7 +3,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.updateProfileSchema = void 0;
 const zod_1 = require("zod");
 const text_utils_1 = require("../utils/text.utils");
-const BIO_REGEX = /^[A-Za-z0-9\s*.,\-/#@!?¿¡\p{Emoji_Presentation}\p{Extended_Pictographic}]+$/u;
+const BIO_REGEX = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9\s*.,\-/#@!?¿¡\p{Emoji_Presentation}\p{Extended_Pictographic}]+$/u;
 /** Acepta URL absoluta (http/https) o path absoluto local (`/avatars/...`). */
 const urlOrAbsolutePath = zod_1.z
     .string()
@@ -28,8 +28,8 @@ exports.updateProfileSchema = zod_1.z.object({
         .max(15, {
         message: "Username must not exceed 15 characters",
     })
-        .regex(/^[A-Za-z]+$/, {
-        message: "Username can contain only letters",
+        .regex(/^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+$/, {
+        message: "Username can contain only letters (accents and ñ allowed)",
     })
         .refine((value) => !(0, text_utils_1.containsEmoji)(value), {
         message: "Username cannot contain emojis",

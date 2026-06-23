@@ -40,7 +40,7 @@ interface AuthContextType {
    */
   isLoggingOut: boolean;
   register: (payload: RegisterPayload) => Promise<void>;
-  login: (payload: LoginPayload) => Promise<void>;
+  login: (payload: LoginPayload) => Promise<User>;
   logout: () => Promise<void>;
 }
 
@@ -102,7 +102,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const login = async (payload: LoginPayload) => {
+  const login = async (payload: LoginPayload): Promise<User> => {
     setIsLoading(true);
     setIsLoggingOut(false);
     try {
@@ -110,6 +110,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       saveToken(response.accessToken);
       setToken(response.accessToken);
       setUser(response.user);
+      return response.user;
     } catch (error) {
       throw error;
     } finally {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 import { TrendingUp, Sparkles, Bell, Flame, ChevronRight, Check, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "@/src/context/AuthContext";
@@ -9,6 +10,7 @@ import {
   formatRelativeTime,
   getNotificationStyle,
 } from "@/src/lib/notification";
+import { getHomePublication, type HomePublication } from "@/src/lib/homeContent";
 
 /** Capitaliza la primera letra (el backend guarda el username en minúsculas). */
 function capitalize(value: string): string {
@@ -26,6 +28,11 @@ const HomeLoggedView = () => {
   } = useNotifications();
   const recentNotifications = notifications.slice(0, 5);
   const displayName = capitalize(user?.name?.trim() || "estudiante");
+  const [publication, setPublication] = useState<HomePublication | null>(null);
+
+  useEffect(() => {
+    setPublication(getHomePublication());
+  }, []);
 
   return (
     <div className="min-h-screen bg-[#f6f8fb]">
@@ -75,10 +82,11 @@ const HomeLoggedView = () => {
             </div>
           </div>
 
-          {/* PERFIL */}
+          {/* PERFIL / PUBLICACIONES */}
+          {publication?.active !== false && publication && (
           <div className="lg:col-span-5 relative overflow-hidden rounded-4xl min-h-80 shadow-sm">
             <Image
-              src="/fixoNews.png"
+              src={publication.image || "/fixoNews.png"}
               alt="Fixy News"
               fill
               priority
@@ -89,40 +97,34 @@ const HomeLoggedView = () => {
 
             <div className="absolute inset-0 bg-linear-to-br from-[#1a4ca3]/30 via-transparent to-[#057f78]/20" />
 
-            {/* CONTENT */}
             <div className="relative z-10 h-full flex flex-col justify-between p-6">
-              {/* TOP */}
               <div className="flex items-start justify-between gap-4">
-                {/* Glass badge */}
                 <div className="backdrop-blur-sm bg-white/10 border border-white/10 rounded-2xl px-4 py-2 shadow-[0_8px_30px_rgba(0,0,0,0.15)]">
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
-                    Noticias
+                    {publication.badge ?? "Noticias"}
                   </p>
                 </div>
 
-                {/* Small indicator */}
                 <div className="backdrop-blur-sm bg-white/10 border border-white/10 rounded-2xl px-3 py-2">
                   <span className="text-xs font-medium text-white">
-                    Próximamente
+                    {publication.buttonLabel}
                   </span>
                 </div>
               </div>
 
-              {/* BOTTOM CHAT-LIKE BAR */}
               <div className="absolute bottom-0 left-0 w-full">
                 <div className="backdrop-blur-sm bg-black/20 border-t border-white/10 px-6 py-5">
                   <h2 className="text-lg font-bold text-white leading-tight">
-                    El servidor de Minecraft de Fixy está en camino
+                    {publication.title}
                   </h2>
                   <p className="text-sm text-white/80 leading-relaxed max-w-2xl">
-                    Estamos preparando un espacio para reuniones, eventos,
-                    actividades y colaboración entre estudiantes dentro de
-                    Minecraft.
+                    {publication.description}
                   </p>
                 </div>
               </div>
             </div>
           </div>
+          )}
 
           {/* ACTIVIDAD */}
           <div className="lg:col-span-6 bg-white border border-gray-100 rounded-[28px] p-6 shadow-sm">

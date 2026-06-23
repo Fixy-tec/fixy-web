@@ -78,6 +78,7 @@ export interface CurrentUserDto {
   email: string;
   password?: never;
   isActive: boolean;
+  isRootAdmin?: boolean;
   role: string;
   createdAt: string;
   updatedAt: string;

@@ -8,6 +8,7 @@ const PROTECTED_ROUTES = [
   "/ranking",
   "/users",
   "/home",
+  "/admin",
 ];
 
 /** Solo login/register: si ya hay sesión, no tiene sentido volver ahí */

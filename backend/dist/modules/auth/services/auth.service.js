@@ -39,6 +39,7 @@ const password_1 = require("../../../utils/password");
 const jwt_1 = require("../../../utils/jwt");
 const authRepository = __importStar(require("../repositories/auth.repository"));
 const client_1 = require("@prisma/client");
+const admin_realtime_1 = require("../../../realtime/admin.realtime");
 async function register(input) {
     const existingUser = await authRepository.findUserByEmail(input.email);
     if (existingUser) {
@@ -56,6 +57,7 @@ async function register(input) {
         email: user.email,
         role: user.role,
     });
+    void (0, admin_realtime_1.notifyAdminDashboardUpdate)();
     return { user: sanitizeUser(user), accessToken };
 }
 async function login(input) {
@@ -66,6 +68,9 @@ async function login(input) {
     const passwordMatch = await (0, password_1.comparePassword)(input.password, user.password);
     if (!passwordMatch) {
         throw new Error("Invalid credentials");
+    }
+    if (!user.isActive) {
+        throw new Error("Account is disabled");
     }
     const accessToken = (0, jwt_1.signJwt)({
         userId: user.id,

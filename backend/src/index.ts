@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import { createServer } from "http";
 import applicationRoutes from "./routes/application.routes";
 import authRoutes from "./routes/auth.routes";
 import userRoutes from "./routes/user.routes";
@@ -10,6 +11,8 @@ import ratingsRoutes from "./modules/ratings/routes/ratings.routes";
 import recommendationsRoutes from "./modules/recommendations/routes/recommendations.routes";
 import PointlogRoutes from "./modules/pointlog/routes/pointlog.routes";
 import notificationsRoutes from "./modules/notifications/routes/notifications.routes";
+import adminRoutes from "./modules/admin/routes/admin.routes";
+import { setupRealtime } from "./realtime";
 
 dotenv.config();
 
@@ -57,8 +60,12 @@ app.use("/api/ratings", ratingsRoutes);
 app.use("/api/recommendations", recommendationsRoutes);
 app.use("/api/pointlog", PointlogRoutes);
 app.use("/api/notifications", notificationsRoutes);
+app.use("/api/admin", adminRoutes);
 
 const port = process.env.PORT ? Number(process.env.PORT) : 4000;
-app.listen(port, () => {
+const httpServer = createServer(app);
+setupRealtime(httpServer);
+
+httpServer.listen(port, () => {
   console.log(`Backend running on http://localhost:${port}`);
 });

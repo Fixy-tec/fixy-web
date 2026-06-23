@@ -5,8 +5,8 @@ const zod_1 = require("zod");
 const text_utils_1 = require("../utils/text.utils");
 const tag_utils_1 = require("../utils/tag.utils");
 const text_utils_2 = require("../utils/text.utils");
-const TITLE_REGEX = /^[A-Za-z0-9\s*\/.\-#!?]+$/u;
-const DESCRIPTION_REGEX = /^[A-Za-z0-9\s*\/.\-#!?,¿¡\p{Emoji_Presentation}\p{Extended_Pictographic}]+$/u;
+const TITLE_REGEX = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9\s*\/.\-#!?]+$/u;
+const DESCRIPTION_REGEX = /^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ0-9\s*\/.\-#!?,¿¡\p{Emoji_Presentation}\p{Extended_Pictographic}]+$/u;
 exports.createRequestSchema = zod_1.z.object({
     type: zod_1.z.enum([
         "ASESORIA",

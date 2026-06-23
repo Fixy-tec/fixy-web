@@ -1,6 +1,6 @@
-// Realtime event handling and notification hooks should be implemented here.
-// This module will centralize socket connections, event dispatch, and pub/sub workflows.
+import { Server as HttpServer } from "http";
+import { setupAdminRealtime } from "./admin.realtime";
 
-export function setupRealtime() {
-  // TODO: initialize realtime event buses or websockets
+export function setupRealtime(httpServer: HttpServer): void {
+  setupAdminRealtime(httpServer);
 }

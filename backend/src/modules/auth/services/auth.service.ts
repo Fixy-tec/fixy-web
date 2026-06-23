@@ -2,6 +2,7 @@ import { comparePassword, hashPassword } from "../../../utils/password";
 import { signJwt } from "../../../utils/jwt";
 import * as authRepository from "../repositories/auth.repository";
 import { Role, User } from "@prisma/client";
+import { notifyAdminDashboardUpdate } from "../../../realtime/admin.realtime";
 
 interface RegisterInput {
   email: string;
@@ -34,6 +35,8 @@ export async function register(input: RegisterInput) {
     role: user.role,
   });
 
+  void notifyAdminDashboardUpdate();
+
   return { user: sanitizeUser(user), accessToken };
 }
 
@@ -46,6 +49,10 @@ export async function login(input: LoginInput) {
   const passwordMatch = await comparePassword(input.password, user.password);
   if (!passwordMatch) {
     throw new Error("Invalid credentials");
+  }
+
+  if (!user.isActive) {
+    throw new Error("Account is disabled");
   }
 
   const accessToken = signJwt({

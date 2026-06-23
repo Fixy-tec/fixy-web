@@ -18,7 +18,10 @@ model User {
   medal                  Medal                   @default(HIERRO)
   name                   String
   role                   Role                    @default(USER)
+  isRootAdmin            Boolean                 @default(false)
   applications           Application[]           @relation("AppliedBy")
+  adminLogsPerformed     AdminLog[]              @relation("AdminActions")
+  adminLogsTargeted      AdminLog[]              @relation("AdminTargets")
   deviceTokens           DeviceToken[]
   notificationRecipients NotificationRecipient[]
   pointLogs              PointLog[]
@@ -231,4 +234,19 @@ enum Medal {
   DIAMANTE
   MAESTRO
   CHALLENGER
+}
+
+model AdminLog {
+  id           String   @id @default(dbgenerated("gen_random_uuid()"))
+  adminId      String
+  action       String
+  targetUserId String?
+  description  String
+  createdAt    DateTime @default(now())
+  admin        User     @relation("AdminActions", fields: [adminId], references: [id], onDelete: Cascade)
+  targetUser   User?    @relation("AdminTargets", fields: [targetUserId], references: [id], onDelete: SetNull)
+
+  @@index([adminId])
+  @@index([targetUserId])
+  @@index([createdAt])
 }

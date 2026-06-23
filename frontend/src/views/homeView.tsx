@@ -16,47 +16,27 @@ import Footer from "../components/footerComponent";
 const phrases = ["Mejora Académica", "Próximo Proyecto"];
 const colors = ["#1a4ca3", "#057f78"];
 
-const steps = [
-  {
-    icon: <FilePlus2 size={36} strokeWidth={1.5} />,
-    title: "Publica tu solicitud",
-    desc: "Crea una solicitud de asesoría o búsqueda de socio para tu proyecto. Define el tema, nivel de dificultad, tags y fecha límite.",
-    color: "#1a4ca3",
-    bg: "#eff4ff",
-    number: "01",
-  },
-  {
-    icon: <Users size={36} strokeWidth={1.5} />,
-    title: "Recibe postulaciones",
-    desc: "Otros estudiantes de tu institución se postulan con su perfil, medalla, calificación promedio y un mensaje de presentación.",
-    color: "#057f78",
-    bg: "#effaf8",
-    number: "02",
-  },
-  {
-    icon: <CheckCircle2 size={36} strokeWidth={1.5} />,
-    title: "Elige y conecta",
-    desc: "Aprueba al postulante que prefieras. Al aceptarlo, se desbloquea automáticamente su número de WhatsApp para coordinar directamente.",
-    color: "#1a4ca3",
-    bg: "#eff4ff",
-    number: "03",
-  },
-  {
-    icon: <Star size={36} strokeWidth={1.5} />,
-    title: "Califica y sube de rango",
-    desc: "Al completar, ambos se califican mutuamente. Gana puntos según el nivel y la calificación recibida, y sube de Hierro hasta Challenger.",
-    color: "#057f78",
-    bg: "#effaf8",
-    number: "04",
-  },
+import { getHomeSteps, type HomeStep } from "@/src/lib/homeContent";
+
+const DEFAULT_STEP_ICONS = [
+  <FilePlus2 key="1" size={36} strokeWidth={1.5} />,
+  <Users key="2" size={36} strokeWidth={1.5} />,
+  <CheckCircle2 key="3" size={36} strokeWidth={1.5} />,
+  <Star key="4" size={36} strokeWidth={1.5} />,
 ];
+
+type DisplayStep = HomeStep & {
+  icon: React.ReactNode;
+};
 
 function TimelineStep({
   step,
   index,
+  total,
 }: {
-  step: (typeof steps)[0];
+  step: DisplayStep;
   index: number;
+  total: number;
 }) {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-100px" });
@@ -85,7 +65,7 @@ function TimelineStep({
             <h3 className="text-lg font-semibold text-gray-800 mb-2">
               {step.title}
             </h3>
-            <p className="text-sm text-gray-500 leading-relaxed">{step.desc}</p>
+            <p className="text-sm text-gray-500 leading-relaxed">{step.description}</p>
           </div>
         ) : (
           <div /> // espacio vacío
@@ -103,7 +83,7 @@ function TimelineStep({
         >
           {step.number}
         </motion.div>
-        {index < steps.length - 1 && (
+        {index < total - 1 && (
           <motion.div
             initial={{ scaleY: 0 }}
             animate={isInView ? { scaleY: 1 } : {}}
@@ -111,7 +91,7 @@ function TimelineStep({
             className="w-0.5 mt-2"
             style={{
               height: "5rem",
-              background: `linear-gradient(to bottom, ${step.color}, ${steps[index + 1].color})`,
+              background: `linear-gradient(to bottom, ${step.color}, transparent)`,
               transformOrigin: "top",
             }}
           />
@@ -135,7 +115,7 @@ function TimelineStep({
             <h3 className="text-lg font-semibold text-gray-800 mb-2">
               {step.title}
             </h3>
-            <p className="text-sm text-gray-500 leading-relaxed">{step.desc}</p>
+            <p className="text-sm text-gray-500 leading-relaxed">{step.description}</p>
           </div>
         ) : (
           <div /> // espacio vacío
@@ -148,6 +128,15 @@ function TimelineStep({
 export default function HomeView() {
   const [current, setCurrent] = useState(0);
   const [visible, setVisible] = useState(true);
+  const [steps, setSteps] = useState<DisplayStep[]>([]);
+
+  useEffect(() => {
+    const loaded = getHomeSteps().map((s, i) => ({
+      ...s,
+      icon: DEFAULT_STEP_ICONS[i % DEFAULT_STEP_ICONS.length],
+    }));
+    setSteps(loaded);
+  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -246,7 +235,7 @@ export default function HomeView() {
           {/* Timeline */}
           <div className="py-4">
             {steps.map((step, i) => (
-              <TimelineStep key={i} step={step} index={i} />
+              <TimelineStep key={step.id} step={step} index={i} total={steps.length} />
             ))}
           </div>
         </div>
