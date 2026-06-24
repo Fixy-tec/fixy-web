@@ -37,6 +37,7 @@ exports.listUsers = listUsers;
 exports.updateUserRole = updateUserRole;
 exports.deleteUser = deleteUser;
 exports.getDashboard = getDashboard;
+exports.listLogs = listLogs;
 const zod_1 = require("zod");
 const admin_schema_1 = require("../../../validators/admin.schema");
 const adminService = __importStar(require("../services/admin.service"));
@@ -117,5 +118,21 @@ async function getDashboard(req, res) {
     catch (error) {
         console.error("[GET /api/admin/dashboard]", error);
         return res.status(500).json({ message: "Error al obtener dashboard" });
+    }
+}
+async function listLogs(req, res) {
+    try {
+        const validated = admin_schema_1.listLogsQuerySchema.parse(req.query);
+        const result = await adminService.listLogs(validated);
+        return res.json(result);
+    }
+    catch (error) {
+        if (error instanceof zod_1.ZodError) {
+            return res.status(400).json({
+                message: error.issues[0]?.message || "Parámetros de consulta inválidos",
+            });
+        }
+        console.error("[GET /api/admin/logs]", error);
+        return res.status(500).json({ message: "Error al listar logs" });
     }
 }

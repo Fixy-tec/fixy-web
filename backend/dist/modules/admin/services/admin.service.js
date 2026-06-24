@@ -41,6 +41,7 @@ exports.listUsers = listUsers;
 exports.changeUserRole = changeUserRole;
 exports.deleteUser = deleteUser;
 exports.getDashboard = getDashboard;
+exports.listLogs = listLogs;
 const prisma_1 = __importDefault(require("../../../prisma"));
 const adminRepository = __importStar(require("../repositories/admin.repository"));
 const admin_realtime_1 = require("../../../realtime/admin.realtime");
@@ -83,6 +84,8 @@ function mapUserToDto(user) {
         createdAt: user.createdAt,
         requestsCreated: user._count.requestsCreated,
         applicationsSent: user._count.applications,
+        isRootAdmin: user.isRootAdmin ?? false,
+        whatsapp: user.profile?.whatsapp ?? null,
     };
 }
 async function userHasActiveAcademicProcesses(userId) {
@@ -130,16 +133,11 @@ async function changeUserRole(adminId, targetUserId, role) {
         return updatedUser;
     });
     void (0, admin_realtime_1.notifyAdminDashboardUpdate)();
-    return {
-        id: updated.id,
-        name: updated.name,
-        email: updated.email,
-        role: updated.role,
-        status: updated.isActive ? "ACTIVE" : "INACTIVE",
-        createdAt: updated.createdAt,
-        requestsCreated: user._count.requestsCreated,
-        applicationsSent: user._count.applications,
-    };
+    return mapUserToDto({
+        ...updated,
+        isRootAdmin: user.isRootAdmin,
+        _count: user._count,
+    });
 }
 async function deleteUser(adminId, targetUserId) {
     const user = await adminRepository.getUserById(targetUserId);
@@ -167,17 +165,24 @@ async function deleteUser(adminId, targetUserId) {
         return deactivated;
     });
     void (0, admin_realtime_1.notifyAdminDashboardUpdate)();
-    return {
-        id: deleted.id,
-        name: deleted.name,
-        email: deleted.email,
-        role: deleted.role,
-        status: "INACTIVE",
-        createdAt: deleted.createdAt,
-        requestsCreated: user._count.requestsCreated,
-        applicationsSent: user._count.applications,
-    };
+    return mapUserToDto({
+        ...deleted,
+        isRootAdmin: user.isRootAdmin,
+        _count: user._count,
+    });
 }
 async function getDashboard() {
     return adminRepository.getDashboardStats();
+}
+async function listLogs(filters) {
+    const { logs, total, page, limit } = await adminRepository.getAdminLogs(filters);
+    return {
+        logs,
+        pagination: {
+            page,
+            limit,
+            total,
+            totalPages: Math.ceil(total / limit) || 1,
+        },
+    };
 }

@@ -33,57 +33,62 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.register = register;
-exports.login = login;
+exports.googleLogin = googleLogin;
+exports.googleCallback = googleCallback;
 exports.logout = logout;
+exports.me = me;
 const authService = __importStar(require("../services/auth.service"));
-const auth_schema_1 = require("../../../validators/auth.schema");
-const zod_1 = require("zod");
-async function register(req, res) {
+async function googleLogin(_req, res) {
     try {
-        const validatedData = auth_schema_1.registerSchema.parse(req.body);
-        const result = await authService.register(validatedData);
-        return res.status(201).json(result);
+        const url = authService.getGoogleAuthUrl();
+        return res.redirect(url);
     }
     catch (error) {
-        if (error instanceof zod_1.ZodError) {
-            const first = error.issues[0];
-            const field = first?.path?.join(".") || "body";
-            const message = first?.message || "Invalid payload";
-            console.error("[POST /auth/register] Zod error:", error.issues);
-            return res.status(400).json({
-                message: `${field}: ${message}`,
-                field,
-                issues: error.issues.map((i) => ({
-                    path: i.path.join("."),
-                    message: i.message,
-                })),
-            });
-        }
-        console.error("[POST /auth/register] Error:", error?.message);
-        return res.status(400).json({
-            message: error.message || "Registration failed",
+        console.error("[GET /auth/google]", error);
+        return res.status(500).json({
+            message: "Google OAuth no está configurado correctamente",
         });
     }
 }
-async function login(req, res) {
+async function googleCallback(req, res) {
     try {
-        const { email, password } = req.body;
-        if (!email || !password) {
-            return res.status(400).json({ message: "Email and password are required" });
+        const code = typeof req.body?.code === "string"
+            ? req.body.code
+            : typeof req.query.code === "string"
+                ? req.query.code
+                : null;
+        if (!code) {
+            return res.status(400).json({ message: "Código de autorización requerido" });
         }
-        const result = await authService.login({ email, password });
+        const result = await authService.handleGoogleCallback(code);
         return res.json(result);
     }
     catch (error) {
-        return res.status(401).json({ message: error.message || "Invalid credentials" });
+        if (error instanceof authService.InstitutionalEmailRejectedError) {
+            return res.status(403).json({ message: error.message, code: "INSTITUTIONAL_EMAIL_REJECTED" });
+        }
+        if (error instanceof authService.AccountDisabledError) {
+            return res.status(403).json({ message: error.message, code: "ACCOUNT_DISABLED" });
+        }
+        if (error instanceof authService.GoogleAuthError) {
+            return res.status(401).json({ message: error.message, code: "GOOGLE_AUTH_FAILED" });
+        }
+        console.error("[POST /auth/google/callback]", error);
+        return res.status(500).json({ message: "Error al procesar autenticación con Google" });
     }
 }
-async function logout(req, res) {
-    try {
-        return res.json({ message: "Logout successful" });
+async function logout(_req, res) {
+    return res.json({ message: "Logout successful" });
+}
+async function me(req, res) {
+    const authReq = req;
+    const userId = authReq.user?.userId;
+    if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
     }
-    catch (error) {
-        return res.status(500).json({ message: error.message || "Logout failed" });
+    const user = await authService.validateSession(userId);
+    if (!user) {
+        return res.status(401).json({ message: "Sesión inválida" });
     }
+    return res.json({ user });
 }

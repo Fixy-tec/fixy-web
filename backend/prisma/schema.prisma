@@ -10,7 +10,8 @@ datasource db {
 model User {
   id                     String                  @id @default(dbgenerated("gen_random_uuid()"))
   email                  String                  @unique
-  password               String
+  password               String?
+  googleId               String?                 @unique
   createdAt              DateTime                @default(now())
   updatedAt              DateTime                @updatedAt
   points                 Int                     @default(0)
@@ -19,6 +20,8 @@ model User {
   name                   String
   role                   Role                    @default(USER)
   isRootAdmin            Boolean                 @default(false)
+  profileCompleted       Boolean                 @default(false)
+  institution            String?                 @default("TECSUP")
   applications           Application[]           @relation("AppliedBy")
   adminLogsPerformed     AdminLog[]              @relation("AdminActions")
   adminLogsTargeted      AdminLog[]              @relation("AdminTargets")
@@ -32,6 +35,7 @@ model User {
   userTags               UserTag[]
 
   @@index([email])
+  @@index([googleId])
   @@index([createdAt])
 }
 

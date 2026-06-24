@@ -250,7 +250,12 @@ async function updateCurrentUser(userId, data) {
             githubUrl: data.githubUrl,
             tagIds,
         });
-        const publicUser = toPublicUser(updated);
+        await prisma_1.default.user.update({
+            where: { id: userId },
+            data: { profileCompleted: true },
+        });
+        const withFlag = { ...updated, profileCompleted: true };
+        const publicUser = toPublicUser(withFlag);
         if (!publicUser)
             return null;
         return attachUserStats(publicUser);

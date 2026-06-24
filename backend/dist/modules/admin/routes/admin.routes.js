@@ -39,6 +39,7 @@ const admin_middleware_1 = require("../../../middlewares/admin.middleware");
 const router = (0, express_1.Router)();
 router.use(admin_middleware_1.adminMiddleware);
 router.get("/dashboard", adminController.getDashboard);
+router.get("/logs", adminController.listLogs);
 router.get("/users", adminController.listUsers);
 router.patch("/users/:id/role", adminController.updateUserRole);
 router.delete("/users/:id", adminController.deleteUser);

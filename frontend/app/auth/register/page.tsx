@@ -1,7 +1,5 @@
-import RegisterView from "@/src/views/auth/registerView";
+import { redirect } from "next/navigation";
 
-const RegisterPage = () => {
-  return <RegisterView />;
-};
-
-export default RegisterPage;
+export default function RegisterPage() {
+  redirect("/auth/login");
+}

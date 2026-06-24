@@ -11,6 +11,7 @@ exports.updateUserRole = updateUserRole;
 exports.softDeleteUser = softDeleteUser;
 exports.createAdminLog = createAdminLog;
 exports.getDashboardStats = getDashboardStats;
+exports.getAdminLogs = getAdminLogs;
 const prisma_1 = __importDefault(require("../../../prisma"));
 const admin_constants_1 = require("../constants/admin.constants");
 async function getUsers(filters) {
@@ -38,7 +39,9 @@ async function getUsers(filters) {
                 email: true,
                 role: true,
                 isActive: true,
+                isRootAdmin: true,
                 createdAt: true,
+                profile: { select: { whatsapp: true } },
                 _count: {
                     select: {
                         requestsCreated: true,
@@ -62,6 +65,7 @@ async function getUserById(id) {
             isActive: true,
             isRootAdmin: true,
             createdAt: true,
+            profile: { select: { whatsapp: true } },
             _count: {
                 select: {
                     requestsCreated: true,
@@ -252,4 +256,36 @@ async function getDashboardStats() {
             requestsLast7Days,
         },
     };
+}
+async function getAdminLogs(filters) {
+    const { page, limit, action, adminId, targetUserId, from, to } = filters;
+    const skip = (page - 1) * limit;
+    const where = {};
+    if (action)
+        where.action = { contains: action, mode: "insensitive" };
+    if (adminId)
+        where.adminId = adminId;
+    if (targetUserId)
+        where.targetUserId = targetUserId;
+    if (from || to) {
+        where.createdAt = {};
+        if (from)
+            where.createdAt.gte = from;
+        if (to)
+            where.createdAt.lte = to;
+    }
+    const [logs, total] = await Promise.all([
+        prisma_1.default.adminLog.findMany({
+            where,
+            skip,
+            take: limit,
+            orderBy: { createdAt: "desc" },
+            include: {
+                admin: { select: { id: true, name: true, email: true } },
+                targetUser: { select: { id: true, name: true, email: true } },
+            },
+        }),
+        prisma_1.default.adminLog.count({ where }),
+    ]);
+    return { logs, total, page, limit };
 }

@@ -1,88 +1,18 @@
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000/api";
 
-export interface RegisterPayload {
+export interface AuthUser {
+  id: string;
   name: string;
   email: string;
-  password: string;
+  role: string;
+  profileCompleted: boolean;
+  institution?: string | null;
 }
 
 export interface AuthResponse {
-  user: {
-    id: string;
-    name: string;
-    email: string;
-    role: string;
-  };
+  user: AuthUser;
   accessToken: string;
-}
-
-export interface LoginPayload {
-  email: string;
-  password: string;
-}
-
-/**
- * POST `/auth/register` — body: `{ name, email, password }`
- */
-export async function registerUser(
-  payload: RegisterPayload,
-): Promise<AuthResponse> {
-  const response = await fetch(`${API_BASE}/auth/register`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    let message = "Error al registrarse";
-    try {
-      const error = (await response.json()) as { message?: string };
-      if (error?.message) message = String(error.message);
-    } catch {
-      /* cuerpo no JSON */
-    }
-    throw new Error(message);
-  }
-
-  return response.json();
-}
-
-/** POST `/auth/login` — body: `{ email, password }` */
-export async function loginUser(payload: LoginPayload): Promise<AuthResponse> {
-  const response = await fetch(`${API_BASE}/auth/login`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    let message = "Credenciales inválidas";
-    try {
-      const error = (await response.json()) as { message?: string };
-      if (error?.message) message = String(error.message);
-    } catch {
-      /* cuerpo no JSON */
-    }
-    throw new Error(message);
-  }
-
-  return response.json();
-}
-
-/** POST `/auth/logout` — header `Authorization: Bearer <accessToken>` */
-export async function logoutUser(accessToken: string): Promise<void> {
-  await fetch(`${API_BASE}/auth/logout`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${accessToken}`,
-    },
-  });
 }
 
 export const AUTH_TOKEN_KEY = "auth_token";
@@ -97,33 +27,80 @@ function clearAuthCookie() {
   document.cookie = `${AUTH_TOKEN_KEY}=; path=/; max-age=0; SameSite=Lax`;
 }
 
-/**
- * Verifica si hay token válido en localStorage
- */
+/** URL del backend que redirige a Google OAuth */
+export function getGoogleLoginUrl(): string {
+  return `${API_BASE}/auth/google`;
+}
+
+export async function fetchAuthMe(accessToken: string): Promise<AuthUser> {
+  const response = await fetch(`${API_BASE}/auth/me`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Sesión inválida");
+  }
+
+  const body = (await response.json()) as { user: AuthUser };
+  return body.user;
+}
+
+export async function logoutUser(accessToken: string): Promise<void> {
+  await fetch(`${API_BASE}/auth/logout`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+}
+
 export function getStoredToken(): string | null {
   if (typeof window === "undefined") return null;
   return localStorage.getItem(AUTH_TOKEN_KEY);
 }
 
-/**
- * Guarda el token en localStorage y cookie (para middleware)
- */
 export function saveToken(token: string): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(AUTH_TOKEN_KEY, token);
   setAuthCookie(token);
 }
 
-/**
- * Elimina el token de localStorage y cookie
- */
 export function removeToken(): void {
   if (typeof window === "undefined") return;
   localStorage.removeItem(AUTH_TOKEN_KEY);
   clearAuthCookie();
 }
 
-/** Sincroniza cookie desde localStorage (sesiones previas al middleware) */
+export function readAuthCookie(): string | null {
+  if (typeof document === "undefined") return null;
+
+  const prefix = `${AUTH_TOKEN_KEY}=`;
+  const cookies = document.cookie.split(";");
+
+  for (const entry of cookies) {
+    const trimmed = entry.trim();
+    if (trimmed.startsWith(prefix)) {
+      const raw = trimmed.slice(prefix.length);
+      try {
+        return decodeURIComponent(raw);
+      } catch {
+        return raw;
+      }
+    }
+  }
+
+  return null;
+}
+
+/** Obtiene el token desde localStorage o cookie (OAuth / sesión previa). */
+export function resolveAuthToken(): string | null {
+  return getStoredToken() ?? readAuthCookie();
+}
+
 export function syncAuthCookieFromStorage(): void {
   if (typeof window === "undefined") return;
   const token = getStoredToken();
@@ -134,28 +111,22 @@ export function syncAuthCookieFromStorage(): void {
   }
 }
 
-/**
- * Decodifica el JWT para obtener el payload (sin verificar firma)
- */
-export function decodeToken(token: string): Record<string, any> | null {
+export function decodeToken(token: string): Record<string, unknown> | null {
   try {
     const parts = token.split(".");
     if (parts.length !== 3) return null;
 
-    const decoded = JSON.parse(atob(parts[1]));
-    return decoded;
-  } catch (error) {
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
+    return JSON.parse(atob(padded)) as Record<string, unknown>;
+  } catch {
     return null;
   }
 }
 
-/**
- * Verifica si el token es válido (no expirado)
- */
 export function isTokenValid(token: string): boolean {
   const decoded = decodeToken(token);
-  if (!decoded || !decoded.exp) return false;
-
-  const now = Math.floor(Date.now() / 1000);
-  return decoded.exp > now;
+  if (!decoded || typeof decoded.exp !== "number") return false;
+  return decoded.exp > Math.floor(Date.now() / 1000);
 }

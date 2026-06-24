@@ -11,13 +11,23 @@ const PROTECTED_ROUTES = [
   "/admin",
 ];
 
-/** Solo login/register: si ya hay sesión, no tiene sentido volver ahí */
-const GUEST_ONLY_AUTH_ROUTES = ["/auth/login", "/auth/register"];
+/** Solo login: si ya hay sesión, redirigir al home */
+const GUEST_ONLY_AUTH_ROUTES = ["/auth/login"];
+
+function normalizeCookieToken(raw: string | undefined): string | null {
+  if (!raw) return null;
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
 
 function isLoggedIn(request: NextRequest): boolean {
-  const token = request.cookies.get(AUTH_TOKEN_KEY)?.value;
+  const raw = request.cookies.get(AUTH_TOKEN_KEY)?.value;
+  const token = normalizeCookieToken(raw);
   if (!token) return false;
-  return isTokenValid(decodeURIComponent(token));
+  return isTokenValid(token);
 }
 
 export function middleware(request: NextRequest) {
@@ -38,7 +48,7 @@ export function middleware(request: NextRequest) {
     pathname.startsWith(route),
   );
   if (isGuestAuthRoute && loggedIn) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return NextResponse.redirect(new URL("/home", request.url));
   }
 
   return NextResponse.next();
