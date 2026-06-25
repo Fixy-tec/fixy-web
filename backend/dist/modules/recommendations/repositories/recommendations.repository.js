@@ -10,6 +10,7 @@ const prisma_1 = __importDefault(require("../../../prisma"));
 /**
  * Get recommended requests for a user based on tag matching
  * Recommends requests whose tags overlap with user's tags
+ * Excludes requests where user has already applied
  */
 async function getRecommendedRequestsForUser(userId, limit = 10) {
     try {
@@ -19,16 +20,19 @@ async function getRecommendedRequestsForUser(userId, limit = 10) {
             include: { tag: true },
         });
         if (userTags.length === 0) {
-            // No tags, return recent OPEN requests
+            // No tags, return recent OPEN requests (excluding applied ones)
             return prisma_1.default.request.findMany({
                 where: {
                     status: "ABIERTA",
                     creatorId: { not: userId },
+                    // Exclude requests where user has already applied
+                    applications: {
+                        none: { applicantId: userId },
+                    },
                 },
                 include: {
                     creator: { include: { profile: true } },
                     tags: { include: { tag: true } },
-                    applications: true,
                 },
                 orderBy: { createdAt: "desc" },
                 take: limit,
@@ -40,6 +44,10 @@ async function getRecommendedRequestsForUser(userId, limit = 10) {
             where: {
                 status: "ABIERTA",
                 creatorId: { not: userId },
+                // Exclude requests where user has already applied
+                applications: {
+                    none: { applicantId: userId },
+                },
                 tags: {
                     some: {
                         tagId: {
@@ -51,7 +59,6 @@ async function getRecommendedRequestsForUser(userId, limit = 10) {
             include: {
                 creator: { include: { profile: true } },
                 tags: { include: { tag: true } },
-                applications: true,
             },
             orderBy: { createdAt: "desc" },
             take: limit,
@@ -70,6 +77,7 @@ async function getRecommendedRequestsForUser(userId, limit = 10) {
 /**
  * Get recommended users for a request based on tag matching
  * Returns applicants whose tags match the request tags
+ * Excludes: creator, users who already applied, users without profile
  */
 async function getRecommendedApplicantsForRequest(requestId) {
     try {
@@ -82,6 +90,7 @@ async function getRecommendedApplicantsForRequest(requestId) {
         }
         const requestTagIds = request.tags.map((rt) => rt.tagId);
         // Get users with matching tags (excluding creator and those who already applied)
+        // Also require profile to be present (users who have completed onboarding)
         const applicants = await prisma_1.default.user.findMany({
             where: {
                 id: { not: request.creatorId },
@@ -97,6 +106,9 @@ async function getRecommendedApplicantsForRequest(requestId) {
                         },
                     },
                 },
+                profile: {
+                    isNot: null, // Only users with profile
+                },
             },
             include: {
                 profile: true,
@@ -104,7 +116,7 @@ async function getRecommendedApplicantsForRequest(requestId) {
             },
             take: 20,
         });
-        // Sort by match count
+        // Sort by match count (most matches first)
         return applicants.sort((a, b) => {
             const aMatches = a.userTags.filter((ut) => requestTagIds.includes(ut.tagId)).length;
             const bMatches = b.userTags.filter((ut) => requestTagIds.includes(ut.tagId)).length;
@@ -117,6 +129,7 @@ async function getRecommendedApplicantsForRequest(requestId) {
 }
 /**
  * Calculate match percentage between a request and a user based on tags
+ * Returns a percentage (0-100) indicating how many tags match
  */
 async function calculateMatchPercentage(userId, requestId) {
     try {
@@ -128,16 +141,25 @@ async function calculateMatchPercentage(userId, requestId) {
             where: { id: requestId },
             include: { tags: true },
         });
-        if (!user || !request || user.userTags.length === 0 || request.tags.length === 0) {
+        if (!user) {
+            throw new Error("User not found");
+        }
+        if (!request) {
+            throw new Error("Request not found");
+        }
+        if (user.userTags.length === 0 || request.tags.length === 0) {
             return 0;
         }
         const userTagIds = user.userTags.map((ut) => ut.tagId);
         const requestTagIds = request.tags.map((rt) => rt.tagId);
         const matches = userTagIds.filter((tagId) => requestTagIds.includes(tagId)).length;
         const totalTags = new Set([...userTagIds, ...requestTagIds]).size;
-        return (matches / totalTags) * 100;
+        return Math.round((matches / totalTags) * 100);
     }
     catch (error) {
+        if (error.message === "User not found" || error.message === "Request not found") {
+            throw error;
+        }
         throw new Error("Failed to calculate match percentage");
     }
 }

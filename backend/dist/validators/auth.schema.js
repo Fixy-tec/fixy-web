@@ -3,12 +3,15 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.registerSchema = void 0;
 const zod_1 = require("zod");
 const text_utils_1 = require("../utils/text.utils");
-const TECSUP_EMAIL_REGEX = /^[A-Za-z]+@tecsup\.edu\.pe$/;
+// Permite formato `nombre@tecsup.edu.pe` y `nombre.apellido@tecsup.edu.pe`
+// (uno o más bloques de letras separados por un único punto). No permite
+// puntos al inicio/fin ni dos puntos seguidos.
+const TECSUP_EMAIL_REGEX = /^[A-Za-z]+(?:\.[A-Za-z]+)*@tecsup\.edu\.pe$/;
 exports.registerSchema = zod_1.z.object({
     email: zod_1.z
         .string()
         .regex(TECSUP_EMAIL_REGEX, {
-        message: "Email must be institutional (@tecsup.edu.pe) and contain only letters before the domain",
+        message: "Email must be institutional (@tecsup.edu.pe) and contain only letters and dots before the domain",
     })
         .transform((value) => value.toLowerCase().trim()),
     name: zod_1.z
@@ -19,8 +22,8 @@ exports.registerSchema = zod_1.z.object({
         .max(15, {
         message: "Username must not exceed 15 characters",
     })
-        .regex(/^[A-Za-z]+$/, {
-        message: "Username can contain only letters",
+        .regex(/^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+$/, {
+        message: "Username can contain only letters (accents and ñ allowed)",
     })
         .refine((value) => !(0, text_utils_1.containsEmoji)(value), {
         message: "Username cannot contain emojis",

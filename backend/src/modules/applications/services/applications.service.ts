@@ -2,6 +2,7 @@ import * as applicationsRepository from "../repositories/applications.repository
 import * as notificationsService from "../../notifications/services/notifications.service";
 import { ApplicationStatus, RequestStatus } from "@prisma/client";
 import prisma from "../../../prisma";
+import { notifyAdminDashboardUpdate } from "../../../realtime/admin.realtime";
 
 interface CreateApplicationInput {
   requestId: string;
@@ -84,6 +85,7 @@ export async function createApplication(input: CreateApplicationInput) {
     });
   }
 
+  void notifyAdminDashboardUpdate();
   return created;
 }
 
@@ -167,6 +169,7 @@ export async function updateApplication(id: string, input: UpdateApplicationInpu
       applicationId: result.id,
     });
 
+    void notifyAdminDashboardUpdate();
     return result;
   }
 

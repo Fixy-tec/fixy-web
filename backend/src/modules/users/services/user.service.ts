@@ -3,9 +3,9 @@ import { Prisma } from "@prisma/client";
 import * as userRepository from "../repositories/user.repository";
 import * as tagRepository from "../../tags/repositories/tag.repository";
 
-function toPublicUser<T extends { password?: string }>(user: T | null) {
+function toPublicUser<T extends { password?: string | null }>(user: T | null) {
   if (!user) return null;
-  const { password: _pw, ...rest } = user as T & { password?: string };
+  const { password: _pw, ...rest } = user;
   return rest;
 }
 
@@ -227,7 +227,14 @@ export async function updateCurrentUser(userId: string, data: {
       githubUrl: data.githubUrl,
       tagIds,
     });
-    const publicUser = toPublicUser(updated);
+
+    await prisma.user.update({
+      where: { id: userId },
+      data: { profileCompleted: true },
+    });
+
+    const withFlag = { ...updated, profileCompleted: true };
+    const publicUser = toPublicUser(withFlag);
     if (!publicUser) return null;
     return attachUserStats(publicUser);
   } catch (error) {

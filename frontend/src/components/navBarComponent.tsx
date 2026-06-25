@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Power, User } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
+import { isAdmin } from "@/src/lib/admin";
 import NotificationBell from "@/src/components/notificationBell";
 
 const navLinks = [
@@ -75,6 +76,14 @@ export default function NavBarComponent() {
                   {label}
                 </Link>
               ))}
+              {isAdmin(user) && (
+                <Link
+                  href="/admin/dashboard"
+                  className="text-sm font-semibold px-4 py-2 rounded-lg transition-all duration-150 bg-[#effaf8] text-[#057f78] border border-[#057f78]/20 hover:bg-[#057f78] hover:text-white"
+                >
+                  Admin
+                </Link>
+              )}
             </div>
           )}
 
@@ -110,30 +119,12 @@ export default function NavBarComponent() {
                 </button>
               </>
             ) : (
-              <>
-                {/* Iniciar sesión */}
-                <Link
-                  href="/auth/login"
-                  className="text-gray-700 hover:text-[#057f78] font-semibold px-4 py-2 rounded-lg transition-colors text-sm"
-                >
-                  Iniciar sesión
-                </Link>
-
-                {/* Crear cuenta */}
-                <Link
-                  href="/auth/register"
-                  className="text-white font-semibold px-4 py-2 rounded-lg transition-colors text-sm"
-                  style={{ background: "#1a4ca3" }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "#143d87")
-                  }
-                  onMouseLeave={(e) =>
-                    (e.currentTarget.style.background = "#1a4ca3")
-                  }
-                >
-                  Crear cuenta
-                </Link>
-              </>
+              <Link
+                href="/auth/login"
+                className="text-gray-700 hover:text-[#057f78] font-semibold px-4 py-2 rounded-lg transition-colors text-sm"
+              >
+                Iniciar sesión
+              </Link>
             )}
           </div>
 
@@ -192,6 +183,15 @@ export default function NavBarComponent() {
                     {label}
                   </Link>
                 ))}
+                {isAdmin(user) && (
+                  <Link
+                    href="/admin/dashboard"
+                    className="block py-2 px-3 text-sm font-semibold text-[#057f78] bg-[#effaf8] rounded-lg border border-[#057f78]/20"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Admin
+                  </Link>
+                )}
                 <div className="pt-2 border-t border-gray-100 space-y-1">
                   <Link
                     href={user ? `/users/${user.id}` : "/auth/login"}
@@ -218,21 +218,13 @@ export default function NavBarComponent() {
               </>
             ) : (
               <>
-                <div className="pt-2 border-t border-gray-100 space-y-2">
+                <div className="pt-2 border-t border-gray-100">
                   <Link
                     href="/auth/login"
-                    className="block text-center text-gray-700 font-semibold  transition-colors hover:text-[#057f78]"
+                    className="block text-center text-gray-700 font-semibold transition-colors hover:text-[#057f78] py-2"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Iniciar sesión
-                  </Link>
-                  <Link
-                    href="/auth/register"
-                    className="block text-center text-white font-semibold px-4 py-2 rounded-lg transition-colors"
-                    style={{ background: "#1a4ca3" }}
-                    onClick={() => setIsMenuOpen(false)}
-                  >
-                    Crear cuenta
                   </Link>
                 </div>
               </>

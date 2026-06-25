@@ -1,10 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  registerUser,
-  loginUser,
   logoutUser,
   getStoredToken,
   saveToken,
@@ -12,137 +10,134 @@ import {
   syncAuthCookieFromStorage,
   isTokenValid,
   decodeToken,
-  type RegisterPayload,
-  type LoginPayload,
-  type AuthResponse,
+  fetchAuthMe,
+  resolveAuthToken,
+  readAuthCookie,
+  type AuthUser,
 } from "@/src/lib/auth";
-
-// Tipos reexportados
-export type { RegisterPayload, LoginPayload, AuthResponse };
-
-export interface User {
-  id: string;
-  name: string;
-  email: string;
-  role: string;
-}
+export type { AuthUser as User };
 
 interface AuthContextType {
-  user: User | null;
+  user: AuthUser | null;
   token: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
-  /**
-   * `true` desde el instante en que se invoca `logout()` y hasta que la
-   * navegación a `/auth/*` se completa. Sirve para que vistas protegidas
-   * NO disparen su redirect a `/forbidden` durante el cierre de sesión
-   * (la sesión termina voluntariamente, no es un acceso prohibido).
-   */
   isLoggingOut: boolean;
-  register: (payload: RegisterPayload) => Promise<void>;
-  login: (payload: LoginPayload) => Promise<void>;
   logout: () => Promise<void>;
+  refreshSession: () => Promise<void>;
 }
+
+const PROTECTED_PREFIXES = [
+  "/applications",
+  "/find",
+  "/ranking",
+  "/users",
+  "/home",
+  "/admin",
+];
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Una vez que la navegación nos llevó a /auth/*, podemos bajar el flag.
-  // Esto evita que el flag quede pegado en `true` y bloquee redirecciones
-  // legítimas a /forbidden cuando un usuario sin sesión escribe una URL
-  // protegida en la barra del navegador.
   useEffect(() => {
     if (isLoggingOut && pathname?.startsWith("/auth")) {
       setIsLoggingOut(false);
     }
   }, [pathname, isLoggingOut]);
 
-  // Verificar token al montar
-  useEffect(() => {
+  const refreshSession = useCallback(async () => {
     const storedToken = getStoredToken();
-    if (storedToken && isTokenValid(storedToken)) {
-      const decoded = decodeToken(storedToken);
-      if (decoded) {
-        setToken(storedToken);
-        // Reconstituir usuario desde el token
-        setUser({
-          id: decoded.userId,
-          email: decoded.email,
-          name: decoded.name || decoded.email,
-          role: decoded.role,
-        });
-      }
-    } else if (storedToken) {
-      // Token expirado, remover
+    if (!storedToken || !isTokenValid(storedToken)) {
       removeToken();
+      setToken(null);
+      setUser(null);
+      return;
     }
-    syncAuthCookieFromStorage();
-    setIsLoading(false);
+
+    try {
+      const me = await fetchAuthMe(storedToken);
+      setToken(storedToken);
+      setUser(me);
+      saveToken(storedToken);
+    } catch {
+      removeToken();
+      setToken(null);
+      setUser(null);
+    }
   }, []);
 
-  const register = async (payload: RegisterPayload) => {
-    setIsLoading(true);
-    setIsLoggingOut(false);
-    try {
-      const response = await registerUser(payload);
-      saveToken(response.accessToken);
-      setToken(response.accessToken);
-      setUser(response.user);
-    } catch (error) {
-      throw error;
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  useEffect(() => {
+    const init = async () => {
+      // Sincronizar cookie → localStorage (p.ej. tras OAuth antes de /complete)
+      const cookieToken = readAuthCookie();
+      if (cookieToken && isTokenValid(cookieToken)) {
+        saveToken(cookieToken);
+      }
 
-  const login = async (payload: LoginPayload) => {
-    setIsLoading(true);
-    setIsLoggingOut(false);
-    try {
-      const response = await loginUser(payload);
-      saveToken(response.accessToken);
-      setToken(response.accessToken);
-      setUser(response.user);
-    } catch (error) {
-      throw error;
-    } finally {
+      const storedToken = resolveAuthToken();
+      if (storedToken && isTokenValid(storedToken)) {
+        try {
+          const me = await fetchAuthMe(storedToken);
+          setToken(storedToken);
+          setUser(me);
+        } catch {
+          const decoded = decodeToken(storedToken);
+          if (decoded && typeof decoded.userId === "string") {
+            setToken(storedToken);
+            setUser({
+              id: decoded.userId as string,
+              email: (decoded.email as string) ?? "",
+              name: (decoded.email as string) ?? "",
+              role: (decoded.role as string) ?? "USER",
+              profileCompleted: false,
+            });
+          } else {
+            removeToken();
+          }
+        }
+      } else if (storedToken) {
+        removeToken();
+      }
+      syncAuthCookieFromStorage();
       setIsLoading(false);
+    };
+
+    void init();
+  }, []);
+
+  // Redirigir a onboarding si el perfil no está completo
+  useEffect(() => {
+    if (isLoading || isLoggingOut || !user || !token) return;
+
+    const onOnboarding = pathname?.startsWith("/auth/on-boarding");
+    const onAuthFlow =
+      pathname?.startsWith("/auth") || pathname?.startsWith("/api/auth");
+
+    if (user.profileCompleted || onOnboarding || onAuthFlow) return;
+
+    const isProtected = PROTECTED_PREFIXES.some((p) => pathname?.startsWith(p));
+    if (isProtected) {
+      router.replace("/auth/on-boarding");
     }
-  };
+  }, [isLoading, isLoggingOut, user, token, pathname, router]);
 
   const logout = async () => {
-    // 1) Marcamos el flag ANTES de tocar nada para que cualquier vista
-    //    protegida que re-renderice vea `isLoggingOut === true` y NO dispare
-    //    su redirect a `/forbidden` cuando notemos que la sesión se fue.
     setIsLoggingOut(true);
-
     const current = token ?? getStoredToken();
     try {
-      if (current) {
-        await logoutUser(current);
-      }
+      if (current) await logoutUser(current);
     } catch {
-      // Red o error del servidor: igual limpiamos sesión local
+      /* ignore */
     }
-
-    // 2) Limpieza local del storage + cookie.
     removeToken();
-
-    // 3) Navegamos PRIMERO (antes de soltar `setToken/setUser`) para que la
-    //    ruta destino ya esté en transición cuando se propague el cambio de
-    //    `isAuthenticated`. El navbar ya no necesita llamar a `router.push`.
     router.replace("/auth/login");
-
-    // 4) Limpieza de estado React (provoca el re-render con
-    //    isAuthenticated=false; las vistas que estén montadas verán
-    //    `isLoggingOut=true` y se quedarán quietas hasta desmontar).
     setToken(null);
     setUser(null);
   };
@@ -153,9 +148,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     isLoading,
     isAuthenticated: !!user && !!token,
     isLoggingOut,
-    register,
-    login,
     logout,
+    refreshSession,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

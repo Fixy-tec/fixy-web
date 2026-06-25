@@ -6,6 +6,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const dotenv_1 = __importDefault(require("dotenv"));
+const http_1 = require("http");
 const application_routes_1 = __importDefault(require("./routes/application.routes"));
 const auth_routes_1 = __importDefault(require("./routes/auth.routes"));
 const user_routes_1 = __importDefault(require("./routes/user.routes"));
@@ -15,6 +16,8 @@ const ratings_routes_1 = __importDefault(require("./modules/ratings/routes/ratin
 const recommendations_routes_1 = __importDefault(require("./modules/recommendations/routes/recommendations.routes"));
 const pointlog_routes_1 = __importDefault(require("./modules/pointlog/routes/pointlog.routes"));
 const notifications_routes_1 = __importDefault(require("./modules/notifications/routes/notifications.routes"));
+const admin_routes_1 = __importDefault(require("./modules/admin/routes/admin.routes"));
+const realtime_1 = require("./realtime");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
 // Confiamos en el primer proxy (Render/Vercel) para que `req.ip` y los headers
@@ -52,7 +55,10 @@ app.use("/api/ratings", ratings_routes_1.default);
 app.use("/api/recommendations", recommendations_routes_1.default);
 app.use("/api/pointlog", pointlog_routes_1.default);
 app.use("/api/notifications", notifications_routes_1.default);
+app.use("/api/admin", admin_routes_1.default);
 const port = process.env.PORT ? Number(process.env.PORT) : 4000;
-app.listen(port, () => {
+const httpServer = (0, http_1.createServer)(app);
+(0, realtime_1.setupRealtime)(httpServer);
+httpServer.listen(port, () => {
     console.log(`Backend running on http://localhost:${port}`);
 });

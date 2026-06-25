@@ -36,6 +36,7 @@ const OnboardingView = () => {
     validateBio,
     validateOptionalUrl,
   } = useUserProfile();
+  const { refreshSession } = useAuth();
 
   const [step, setStep] = useState(1);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -116,6 +117,7 @@ const OnboardingView = () => {
         linkedinUrl: data.linkedinUrl.trim() || undefined,
         portfolioUrl: data.portfolioUrl.trim() || undefined,
       });
+      await refreshSession();
       router.push("/home");
     } catch (e) {
       setSubmitError(

@@ -32,11 +32,16 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getRecommendedRequests = getRecommendedRequests;
 exports.getRecommendedApplicants = getRecommendedApplicants;
 exports.getMatchPercentage = getMatchPercentage;
+exports.verifyRequestOwnership = verifyRequestOwnership;
 const recommendationsRepository = __importStar(require("../repositories/recommendations.repository"));
+const prisma_1 = __importDefault(require("../../../prisma"));
 async function getRecommendedRequests(userId, limit = 10) {
     if (!userId) {
         throw new Error("UserId is required");
@@ -54,4 +59,20 @@ async function getMatchPercentage(userId, requestId) {
         throw new Error("UserId and RequestId are required");
     }
     return recommendationsRepository.calculateMatchPercentage(userId, requestId);
+}
+/**
+ * Verify that a user owns a request
+ * Used for authorization checks on sensitive endpoints
+ */
+async function verifyRequestOwnership(requestId, userId) {
+    try {
+        const request = await prisma_1.default.request.findUnique({
+            where: { id: requestId },
+            select: { creatorId: true },
+        });
+        return request?.creatorId === userId;
+    }
+    catch (error) {
+        return false;
+    }
 }

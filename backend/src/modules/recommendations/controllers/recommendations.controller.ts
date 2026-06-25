@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import * as recommendationsService from "../services/recommendations.service";
 import { AuthRequest } from "../../../middlewares/auth.middleware";
+import { ZodError } from "zod";
+import { getRecommendedRequestsSchema } from "../../../validators/recommendations.schema";
 
 export async function getRecommendedRequests(req: Request, res: Response) {
   try {
@@ -10,11 +12,18 @@ export async function getRecommendedRequests(req: Request, res: Response) {
       return res.status(401).json({ message: "Unauthorized" });
     }
 
-    const limit = parseInt(req.query.limit as string) || 10;
+    // Validate query parameters
+    const validated = getRecommendedRequestsSchema.parse(req.query);
+    const limit = validated.limit;
 
     const recommendations = await recommendationsService.getRecommendedRequests(userId, limit);
     return res.json({ recommendations });
   } catch (error: any) {
+    if (error instanceof ZodError) {
+      return res.status(400).json({
+        message: error.issues[0]?.message || "Invalid query parameters",
+      });
+    }
     return res.status(400).json({ message: error.message || "Failed to get recommendations" });
   }
 }
@@ -29,8 +38,12 @@ export async function getRecommendedApplicants(req: Request, res: Response) {
 
     const { requestId } = req.params;
 
-    // Verify user owns the request
-    // This should be done in a service, but for now verify here
+    // Verify user owns the request (security check)
+    const isOwner = await recommendationsService.verifyRequestOwnership(requestId, userId);
+    if (!isOwner) {
+      return res.status(403).json({ message: "Forbidden: You can only view applicants for your own requests" });
+    }
+
     const applicants = await recommendationsService.getRecommendedApplicants(requestId);
     return res.json({ applicants });
   } catch (error: any) {
@@ -40,7 +53,18 @@ export async function getRecommendedApplicants(req: Request, res: Response) {
 
 export async function getMatchPercentage(req: Request, res: Response) {
   try {
+    const authReq = req as AuthRequest;
+    const authenticatedUserId = authReq.user?.userId;
+    if (!authenticatedUserId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
     const { userId, requestId } = req.params;
+
+    // Security: only allow user to calculate their own match percentage
+    if (userId !== authenticatedUserId) {
+      return res.status(403).json({ message: "Forbidden: You can only view your own match percentage" });
+    }
 
     const matchPercentage = await recommendationsService.getMatchPercentage(userId, requestId);
     return res.json({ matchPercentage });

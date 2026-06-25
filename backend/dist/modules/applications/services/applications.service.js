@@ -44,6 +44,7 @@ exports.deleteApplication = deleteApplication;
 const applicationsRepository = __importStar(require("../repositories/applications.repository"));
 const notificationsService = __importStar(require("../../notifications/services/notifications.service"));
 const prisma_1 = __importDefault(require("../../../prisma"));
+const admin_realtime_1 = require("../../../realtime/admin.realtime");
 async function createApplication(input) {
     if (!input.requestId || !input.applicantId || !input.message) {
         throw new Error("RequestId, applicantId and message are required");
@@ -99,6 +100,7 @@ async function createApplication(input) {
             applicationId: created.id,
         });
     }
+    void (0, admin_realtime_1.notifyAdminDashboardUpdate)();
     return created;
 }
 async function getApplications(filters) {
@@ -165,6 +167,7 @@ async function updateApplication(id, input) {
             requestId: result.requestId,
             applicationId: result.id,
         });
+        void (0, admin_realtime_1.notifyAdminDashboardUpdate)();
         return result;
     }
     // For other status changes, use regular update
