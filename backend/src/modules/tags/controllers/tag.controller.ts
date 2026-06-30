@@ -3,6 +3,9 @@ import * as tagService from "../services/tag.service";
 import { AuthRequest } from "../../../middlewares/auth.middleware";
 
 export async function getTags(_req: Request, res: Response) {
+  // TEMPORAL — solo para simular timeout, quitar después de la captura
+  await new Promise((resolve) => setTimeout(resolve, 10000)); // 10 segundos
+
   const tags = await tagService.getTags();
   return res.json({ tags });
 }

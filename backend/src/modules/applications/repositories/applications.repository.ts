@@ -94,6 +94,10 @@ export async function getApplicationByRequestAndApplicant(
         applicantId,
       },
     },
+    include: {
+      request: { include: { creator: { include: { profile: true } } } },
+      applicant: { include: { profile: true } },
+    },
   });
 }
 

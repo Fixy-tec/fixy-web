@@ -13,18 +13,14 @@ import PointlogRoutes from "./modules/pointlog/routes/pointlog.routes";
 import notificationsRoutes from "./modules/notifications/routes/notifications.routes";
 import adminRoutes from "./modules/admin/routes/admin.routes";
 import { setupRealtime } from "./realtime";
+import "express-async-errors";
 
 dotenv.config();
 
 const app = express();
 
-// Confiamos en el primer proxy (Render/Vercel) para que `req.ip` y los headers
-// X-Forwarded-* se resuelvan correctamente (útil para rate-limit, logs, etc.).
 app.set("trust proxy", 1);
 
-// Lista blanca de orígenes permitidos. En desarrollo usamos los localhost por
-// defecto; en producción se inyecta `ALLOWED_ORIGINS` (separado por comas) con
-// el dominio de Vercel del frontend.
 const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
   : ["http://localhost:3000", "http://127.0.0.1:3000"];
@@ -32,8 +28,6 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 app.use(
   cors({
     origin: (origin, callback) => {
-      // `origin` es undefined en requests server-to-server, curl, healthchecks
-      // de Render, etc. — los dejamos pasar.
       if (!origin || allowedOrigins.includes(origin)) {
         return callback(null, true);
       }
@@ -61,6 +55,27 @@ app.use("/api/recommendations", recommendationsRoutes);
 app.use("/api/pointlog", PointlogRoutes);
 app.use("/api/notifications", notificationsRoutes);
 app.use("/api/admin", adminRoutes);
+
+// ─── Ruta no encontrada (404) ───────────────────────────────
+app.use((req, res) => {
+  res.status(404).json({ message: `Route ${req.method} ${req.path} not found` });
+});
+
+// ─── Manejo global de errores — siempre al final ───────────────
+app.use(
+  (err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error(`[ERROR] ${req.method} ${req.path}:`, err.message);
+
+    if (res.headersSent) {
+      return next(err);
+    }
+
+    res.status(500).json({
+      message: "Internal server error",
+      ...(process.env.NODE_ENV !== "production" && { detail: err.message }),
+    });
+  },
+);
 
 const port = process.env.PORT ? Number(process.env.PORT) : 4000;
 const httpServer = createServer(app);
