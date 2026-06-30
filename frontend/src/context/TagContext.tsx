@@ -24,6 +24,17 @@ interface TagContextValue {
 
 const TagContext = createContext<TagContextValue | undefined>(undefined);
 
+function toFriendlyErrorMessage(e: unknown): string {
+  const isNetworkError =
+    e instanceof TypeError &&
+    (e.message.includes("fetch") || e.message.includes("Network"));
+
+  if (isNetworkError) {
+    return "No pudimos conectar con el servidor. Verifica tu conexión o intenta de nuevo en unos momentos.";
+  }
+  return e instanceof Error ? e.message : "Error al cargar tags";
+}
+
 export function TagProvider({ children }: { children: React.ReactNode }) {
   const [tags, setTags] = useState<TagDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -36,7 +47,7 @@ export function TagProvider({ children }: { children: React.ReactNode }) {
       const list = await fetchTags();
       setTags(list);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error al cargar tags");
+      setError(toFriendlyErrorMessage(e));
       setTags([]);
     } finally {
       setIsLoading(false);
@@ -66,5 +77,5 @@ export function useTags() {
   return ctx;
 }
 
-/** Mismo comportamiento que `useTags` (nombre alternativo si buscas “lista”). */
+/** Mismo comportamiento que `useTags` (nombre alternativo si buscas "lista"). */
 export const useTagList = useTags;
