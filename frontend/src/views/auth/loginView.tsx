@@ -45,9 +45,9 @@ function LoginContent() {
           <div className="mb-8 text-center">
             <Link href="/">
               <Image
-                src="/gaaa.png"
+                src="/logo.png"
                 alt="Fixy Logo"
-                width={130}
+                width={148}
                 height={48}
                 className="object-contain h-10 w-auto mb-6 mx-auto"
                 priority

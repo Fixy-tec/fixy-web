@@ -39,9 +39,9 @@ export default function NavBarComponent() {
           {isLoggedIn ? (
             <Link href="/home" className="flex items-center shrink-0">
               <Image
-                src="/gaaa.png"
+                src="/logo.png"
                 alt="Fixy Logo"
-                width={130}
+                width={148}
                 height={48}
                 className="object-contain h-10 w-auto"
                 priority
@@ -50,9 +50,9 @@ export default function NavBarComponent() {
           ) : (
             <Link href="/" className="flex items-center shrink-0">
               <Image
-                src="/gaaa.png"
+                src="/logo.png"
                 alt="Fixy Logo"
-                width={130}
+                width={148}
                 height={48}
                 className="object-contain h-10 w-auto"
                 priority

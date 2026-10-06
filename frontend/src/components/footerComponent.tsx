@@ -64,9 +64,9 @@ export default function Footer() {
           <div className="flex-shrink-0 max-w-xs">
             <Link href="/">
               <Image
-                src="/gaaa.png"
+                src="/logo.png"
                 alt="Fixy Logo"
-                width={130}
+                width={148}
                 height={48}
                 className="object-contain h-10 w-auto mb-4"
                 priority

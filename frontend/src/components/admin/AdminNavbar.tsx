@@ -66,9 +66,9 @@ export default function AdminNavbar() {
           <div className="flex items-center gap-4 min-w-0">
             <Link href="/admin/dashboard" className="shrink-0">
               <Image
-                src="/gaaa.png"
+                src="/logo.png"
                 alt="Fixy"
-                width={120}
+                width={124}
                 height={40}
                 className="h-9 w-auto object-contain"
                 priority

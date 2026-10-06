@@ -139,9 +139,9 @@ const OnboardingView = () => {
       <div className="w-full max-w-lg">
         <div className="text-center mb-8">
           <Image
-            src="/gaaa.png"
+            src="/logo.png"
             alt="Fixy Logo"
-            width={130}
+            width={148}
             height={48}
             className="object-contain h-10 w-auto mx-auto mb-4"
             priority
