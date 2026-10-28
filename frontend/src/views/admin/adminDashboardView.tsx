@@ -22,7 +22,7 @@ export default function AdminDashboardView() {
         <div className="absolute -top-10 -right-10 w-52 h-52 bg-[#1a4ca3] opacity-20 rounded-full blur-[80px]" />
         <h2 className="text-2xl font-bold relative z-10">Dashboard</h2>
         <p className="text-white/80 mt-2 relative z-10 text-sm max-w-xl">
-          Resumen del ecosistema Fixy. Expande cada card para ver el detalle.
+          Resumen del ecosistema Helpy. Expande cada card para ver el detalle.
         </p>
       </div>
 

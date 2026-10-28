@@ -5,6 +5,14 @@ import type { AdminLogDto } from "@/src/lib/admin";
 const ACTION_LABELS: Record<string, string> = {
   CHANGE_ROLE: "Cambió el rol de un usuario",
   SOFT_DELETE_USER: "Desactivó un usuario",
+  PAYMENT_APPROVED: "Verificó un pago por Yape",
+  PAYMENT_REJECTED: "Rechazó un pago",
+  ESCROW_RELEASED: "Liberó un pago en garantía",
+  ESCROW_REFUNDED: "Reembolsó un pago en garantía",
+  PAYOUT_SENT: "Transfirió un pago a un ayudante",
+  PAYMENT_SETTINGS_UPDATED: "Actualizó la configuración de pagos",
+  INVESTMENT_CREATED: "Registró una inversión",
+  INVESTMENT_DELETED: "Eliminó una inversión",
 };
 
 function formatDate(iso: string) {

@@ -39,8 +39,16 @@ export default function NotificationBell() {
   const handleItemClick = (n: NotificationDto) => {
     const requestId =
       typeof n.data?.requestId === "string" ? n.data.requestId : null;
-    if (requestId) {
-      router.push(`/applications/${requestId}`);
+    const paymentId =
+      typeof n.data?.paymentId === "string" ? n.data.paymentId : null;
+    // Las notificaciones de pago llevan al recibo; el resto, a la solicitud.
+    const href = paymentId
+      ? `/pagos/${paymentId}`
+      : requestId
+        ? `/applications/${requestId}`
+        : null;
+    if (href) {
+      router.push(href);
       setOpen(false);
     }
   };
@@ -121,7 +129,8 @@ export default function NotificationBell() {
               notifications.map((n) => {
                 const style = getNotificationStyle(n.type);
                 const clickable =
-                  typeof n.data?.requestId === "string" && !!n.data.requestId;
+                  (typeof n.data?.requestId === "string" && !!n.data.requestId) ||
+                  (typeof n.data?.paymentId === "string" && !!n.data.paymentId);
                 return (
                   <div
                     key={n.id}

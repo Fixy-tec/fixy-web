@@ -7,7 +7,8 @@ import {
   LayoutDashboard,
   Users,
   ScrollText,
-  LayoutTemplate,
+  Wallet,
+  TrendingUp,
   ChevronLeft,
   User,
   Power,
@@ -23,8 +24,9 @@ import AdminBadge from "@/src/components/admin/AdminBadge";
 const links = [
   { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/users", label: "Usuarios", icon: Users },
+  { href: "/admin/payments", label: "Pagos", icon: Wallet },
+  { href: "/admin/indicadores", label: "Indicadores", icon: TrendingUp },
   { href: "/admin/logs", label: "Logs", icon: ScrollText },
-  { href: "/admin/content", label: "Contenido", icon: LayoutTemplate },
 ];
 
 function capitalizeName(value: string): string {
@@ -67,14 +69,14 @@ export default function AdminNavbar() {
             <Link href="/admin/dashboard" className="shrink-0">
               <Image
                 src="/logo.png"
-                alt="Fixy"
+                alt="Helpy"
                 width={124}
                 height={40}
                 className="h-9 w-auto object-contain"
                 priority
               />
             </Link>
-            <div className="hidden sm:block min-w-0">
+            <div className="hidden sm:block lg:hidden xl:block min-w-0">
               <p className="text-[10px] font-semibold text-[#057f78] uppercase tracking-widest">
                 Panel Administrativo
               </p>
@@ -95,6 +97,7 @@ export default function AdminNavbar() {
                 <Link
                   key={href}
                   href={href}
+                  title={label}
                   className={`flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium transition-all ${
                     active
                       ? "bg-[#effaf8] text-[#057f78] border border-[#057f78]/20"
@@ -102,7 +105,8 @@ export default function AdminNavbar() {
                   }`}
                 >
                   <Icon className="w-4 h-4" />
-                  {label}
+                  {/* En pantallas medianas solo íconos para mantener el menú compacto */}
+                  <span className="hidden xl:inline">{label}</span>
                 </Link>
               );
             })}
@@ -114,7 +118,7 @@ export default function AdminNavbar() {
               className="hidden sm:inline-flex items-center gap-1 text-xs font-semibold text-[#1a4ca3] hover:bg-[#eff4ff] px-3 py-2 rounded-xl transition-colors"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
-              Volver a Fixy
+              Volver a Helpy
             </Link>
             <Link
               href={user ? `/users/${user.id}` : "/home"}
@@ -152,7 +156,7 @@ export default function AdminNavbar() {
               onClick={() => setMenuOpen(false)}
             >
               <ChevronLeft className="w-4 h-4" />
-              Volver a Fixy
+              Volver a Helpy
             </Link>
             {links.map(({ href, label, icon: Icon }) => (
               <Link

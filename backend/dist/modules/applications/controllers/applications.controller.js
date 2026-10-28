@@ -40,6 +40,7 @@ exports.updateApplication = updateApplication;
 exports.deleteApplication = deleteApplication;
 const applicationsService = __importStar(require("../services/applications.service"));
 const client_1 = require("@prisma/client");
+const plan_utils_1 = require("../../plans/plan.utils");
 async function createApplication(req, res) {
     try {
         const authReq = req;
@@ -59,6 +60,9 @@ async function createApplication(req, res) {
         return res.status(201).json(result);
     }
     catch (error) {
+        if (error instanceof plan_utils_1.PlanLimitError) {
+            return res.status(403).json({ message: error.message, code: error.code });
+        }
         return res.status(400).json({ message: error.message || "Failed to create application" });
     }
 }
@@ -113,6 +117,9 @@ async function updateApplication(req, res) {
         return res.json(result);
     }
     catch (error) {
+        if (error instanceof applicationsService.PaymentRequiredError) {
+            return res.status(402).json({ message: error.message, code: error.code });
+        }
         // Handle specific error for capacity
         if (error.message.includes("reached the maximum number of participants")) {
             return res.status(409).json({ message: error.message });

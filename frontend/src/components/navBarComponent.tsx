@@ -4,16 +4,18 @@ import { useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Power, User } from "lucide-react";
+import { Crown, Power, User, Wallet } from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
 import { isAdmin } from "@/src/lib/admin";
 import NotificationBell from "@/src/components/notificationBell";
+import ProBadge from "@/src/components/ProBadge";
 
 const navLinks = [
   { href: "/home", label: "Inicio" },
   { href: "/applications", label: "Mis Solicitudes" },
   { href: "/find", label: "Buscar" },
   { href: "/ranking", label: "Ranking" },
+  { href: "/planes", label: "Planes" },
 ];
 
 export default function NavBarComponent() {
@@ -40,7 +42,7 @@ export default function NavBarComponent() {
             <Link href="/home" className="flex items-center shrink-0">
               <Image
                 src="/logo.png"
-                alt="Fixy Logo"
+                alt="Helpy Logo"
                 width={148}
                 height={48}
                 className="object-contain h-10 w-auto"
@@ -51,7 +53,7 @@ export default function NavBarComponent() {
             <Link href="/" className="flex items-center shrink-0">
               <Image
                 src="/logo.png"
-                alt="Fixy Logo"
+                alt="Helpy Logo"
                 width={148}
                 height={48}
                 className="object-contain h-10 w-auto"
@@ -62,12 +64,12 @@ export default function NavBarComponent() {
 
           {/* Centro — solo si está logueado */}
           {isLoggedIn && (
-            <div className="hidden md:flex items-center space-x-1">
+            <div className="hidden md:flex items-center space-x-0.5 lg:space-x-1">
               {navLinks.map(({ href, label }) => (
                 <Link
                   key={href}
                   href={href}
-                  className="text-gray-600 hover:text-[#1a4ca3] font-medium px-4 py-2 rounded-lg transition-all duration-150 text-sm"
+                  className="text-gray-600 hover:text-[#1a4ca3] font-medium px-2.5 lg:px-4 py-2 rounded-lg transition-all duration-150 text-sm whitespace-nowrap"
                   style={{
                     color: pathname === href ? "#1a4ca3" : "#4b5563",
                     background: pathname === href ? "#eff4ff" : "transparent",
@@ -91,6 +93,23 @@ export default function NavBarComponent() {
           <div className="hidden md:flex items-center gap-2">
             {isLoggedIn ? (
               <>
+                {/* Plan */}
+                {user?.isPro ? (
+                  <Link href="/pagos" title="Mi plan Pro" className="px-1">
+                    <ProBadge size="md" />
+                  </Link>
+                ) : (
+                  <Link
+                    href="/planes"
+                    title="Mejorar a Pro"
+                    className="inline-flex items-center gap-1 text-xs font-semibold text-white bg-gradient-to-r from-amber-400 to-orange-500 hover:opacity-90 px-3 py-1.5 rounded-lg transition-opacity whitespace-nowrap"
+                  >
+                    <Crown size={13} />
+                    <span className="lg:hidden">Pro</span>
+                    <span className="hidden lg:inline">Mejorar a Pro</span>
+                  </Link>
+                )}
+
                 {/* Notificaciones */}
                 <NotificationBell />
 
@@ -105,26 +124,42 @@ export default function NavBarComponent() {
                   }}
                 >
                   <User size={17} strokeWidth={1.8} />
-                  Perfil
+                  <span className="hidden lg:inline">Perfil</span>
                 </Link>
 
                 {/* Logout */}
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="flex items-center gap-2 text-gray-500 hover:text-red-500 font-medium px-3 py-2 rounded-lg transition-colors text-sm border border-gray-200 hover:border-red-200"
+                  title="Cerrar sesión"
+                  aria-label="Cerrar sesión"
+                  className="flex items-center gap-2 text-gray-500 hover:text-red-500 font-medium px-3 py-2 rounded-lg transition-colors text-sm border border-gray-200 hover:border-red-200 whitespace-nowrap"
                 >
                   <Power size={16} strokeWidth={1.8} />
-                  Cerrar sesión
+                  <span className="hidden xl:inline">Cerrar sesión</span>
                 </button>
               </>
             ) : (
-              <Link
-                href="/auth/login"
-                className="text-gray-700 hover:text-[#057f78] font-semibold px-4 py-2 rounded-lg transition-colors text-sm"
-              >
-                Iniciar sesión
-              </Link>
+              <>
+                <Link
+                  href="/planes"
+                  className="text-gray-600 hover:text-[#1a4ca3] font-medium px-3 py-2 rounded-lg transition-colors text-sm"
+                >
+                  Planes
+                </Link>
+                <Link
+                  href="/auth/login"
+                  className="text-gray-700 hover:text-[#057f78] font-semibold px-4 py-2 rounded-lg transition-colors text-sm"
+                >
+                  Iniciar sesión
+                </Link>
+                <Link
+                  href="/auth/register"
+                  className="text-white bg-[#1a4ca3] hover:bg-[#143d87] font-semibold px-4 py-2 rounded-lg transition-colors text-sm"
+                >
+                  Crear cuenta
+                </Link>
+              </>
             )}
           </div>
 
@@ -206,6 +241,15 @@ export default function NavBarComponent() {
                     <User size={16} strokeWidth={1.8} />
                     Perfil
                   </Link>
+                  <Link
+                    href="/pagos"
+                    className="flex items-center gap-2 py-2 px-3 text-gray-700 hover:text-[#1a4ca3] hover:bg-blue-50 font-medium rounded-lg transition-colors"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    <Wallet size={16} strokeWidth={1.8} />
+                    Mi plan y pagos
+                    {user?.isPro && <ProBadge className="ml-auto" />}
+                  </Link>
                   <button
                     type="button"
                     onClick={handleLogout}
@@ -218,13 +262,27 @@ export default function NavBarComponent() {
               </>
             ) : (
               <>
-                <div className="pt-2 border-t border-gray-100">
+                <div className="pt-2 border-t border-gray-100 space-y-1">
+                  <Link
+                    href="/planes"
+                    className="block text-center text-gray-600 font-medium transition-colors hover:text-[#1a4ca3] py-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Planes
+                  </Link>
                   <Link
                     href="/auth/login"
                     className="block text-center text-gray-700 font-semibold transition-colors hover:text-[#057f78] py-2"
                     onClick={() => setIsMenuOpen(false)}
                   >
                     Iniciar sesión
+                  </Link>
+                  <Link
+                    href="/auth/register"
+                    className="block text-center text-white bg-[#1a4ca3] font-semibold rounded-lg py-2"
+                    onClick={() => setIsMenuOpen(false)}
+                  >
+                    Crear cuenta
                   </Link>
                 </div>
               </>

@@ -14,10 +14,14 @@ import {
 import type { ListUsersQuery } from "../../../validators/admin.schema";
 
 export async function getUsers(filters: ListUsersQuery) {
-  const { page, limit, role, search } = filters;
+  const { page, limit, role, search, status } = filters;
   const skip = (page - 1) * limit;
 
   const where: Prisma.UserWhereInput = {};
+
+  if (status !== "ALL") {
+    where.isActive = status === "ACTIVE";
+  }
 
   if (role) {
     where.role = role;

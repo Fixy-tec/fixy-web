@@ -1,4 +1,4 @@
-import { BookOpen, Rocket, Zap, DollarSign, Users, Clock } from "lucide-react";
+import { BookOpen, Rocket, Zap, DollarSign, Users, Clock, Sparkles } from "lucide-react";
 
 type SolicitudType = "Asesoría" | "Proyecto";
 type SolicitudStatus = "Abierta" | "En proceso" | "Completada" | "Cancelada";
@@ -18,6 +18,8 @@ export interface Solicitud {
   beneficio?: string;
   status: SolicitudStatus;
   autor: string;
+  /** Publicada por un usuario Pro */
+  destacada?: boolean;
 }
 
 const statusStyle: Record<SolicitudStatus, string> = {
@@ -50,7 +52,11 @@ export default function SolicitudCard({
   return (
     <div
       onClick={() => onClick(s)}
-      className="bg-white rounded-2xl border border-gray-100 shadow-sm flex hover:shadow-md hover:border-gray-200 transition-all cursor-pointer overflow-hidden"
+      className={`bg-white rounded-2xl border shadow-sm flex hover:shadow-md transition-all cursor-pointer overflow-hidden ${
+        s.destacada
+          ? "border-amber-200 ring-1 ring-amber-100 hover:border-amber-300"
+          : "border-gray-100 hover:border-gray-200"
+      }`}
     >
       {/* Barra lateral de color */}
       <div
@@ -79,6 +85,12 @@ export default function SolicitudCard({
           </span>
 
           <div className="flex items-center gap-2 flex-wrap">
+            {s.destacada && (
+              <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 font-semibold">
+                <Sparkles size={11} strokeWidth={2} />
+                Destacada
+              </span>
+            )}
             {showApplicants && (
               <span className="flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-[#eff4ff] text-[#1a4ca3] border border-[#dbe7ff] font-medium">
                 <Users size={11} strokeWidth={2} />

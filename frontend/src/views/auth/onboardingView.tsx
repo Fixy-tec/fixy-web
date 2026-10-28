@@ -140,7 +140,7 @@ const OnboardingView = () => {
         <div className="text-center mb-8">
           <Image
             src="/logo.png"
-            alt="Fixy Logo"
+            alt="Helpy Logo"
             width={148}
             height={48}
             className="object-contain h-10 w-auto mx-auto mb-4"
@@ -178,7 +178,7 @@ const OnboardingView = () => {
               </h2>
               <p className="text-sm text-gray-500 mb-6">
                 Selecciona entre 1 y {profileRules.TAGS_MAX} tags del catálogo
-                de Fixy.
+                de Helpy.
               </p>
               {tagsLoading ? (
                 <div className="flex justify-center py-12">
@@ -269,7 +269,7 @@ const OnboardingView = () => {
                   Cuéntanos sobre ti
                 </h2>
                 <p className="text-sm text-gray-500 mb-6">
-                  El WhatsApp es obligatorio para completar tu perfil en Fixy.
+                  El WhatsApp es obligatorio para completar tu perfil en Helpy.
                 </p>
               </div>
 
@@ -449,7 +449,7 @@ const OnboardingView = () => {
                 ) : (
                   <Check size={16} strokeWidth={2} />
                 )}
-                {isSaving ? "Guardando…" : "Ir a Fixy"}
+                {isSaving ? "Guardando…" : "Ir a Helpy"}
               </button>
             )}
           </div>

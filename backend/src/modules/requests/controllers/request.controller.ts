@@ -5,6 +5,7 @@ import { RequestType, RequestStatus } from "@prisma/client";
 import { ZodError } from "zod";
 import { createRequestSchema }
 from "../../../validators/request.schema";
+import { PlanLimitError } from "../../plans/plan.utils";
 
 export async function createRequest(req: Request, res: Response) {
   try {
@@ -52,11 +53,39 @@ export async function createRequest(req: Request, res: Response) {
       return res.status(400).json({ message: error.message });
     }
 
+    if (error instanceof PlanLimitError) {
+      return res.status(403).json({ message: error.message, code: error.code });
+    }
+
     return res.status(400).json({
       message:
         error.message ||
         "Failed to create request",
     });
+  }
+}
+
+/**
+ * POST /requests/:id/complete — el creador marca la solicitud como completada.
+ */
+export async function completeRequest(req: Request, res: Response) {
+  try {
+    const authReq = req as AuthRequest;
+    const userId = authReq.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+
+    const { id } = req.params;
+    const request = await requestsService.getRequestById(id);
+    if (request.creatorId !== userId) {
+      return res.status(403).json({ message: "Solo el creador puede completar la solicitud" });
+    }
+
+    const updated = await requestsService.completeRequest(id);
+    return res.json({ request: updated });
+  } catch (error: any) {
+    return res.status(400).json({ message: error.message || "No se pudo completar la solicitud" });
   }
 }
 
@@ -129,6 +158,9 @@ export async function updateRequest(req: Request, res: Response) {
     if (error instanceof requestsService.InvalidTagIdsError) {
       return res.status(400).json({ message: error.message });
     }
+    if (error instanceof requestsService.ActiveEscrowError) {
+      return res.status(409).json({ message: error.message });
+    }
     return res.status(400).json({ message: error.message || "Failed to update request" });
   }
 }
@@ -152,6 +184,9 @@ export async function deleteRequest(req: Request, res: Response) {
     await requestsService.deleteRequest(id);
     return res.json({ message: "Request deleted successfully" });
   } catch (error: any) {
+    if (error instanceof requestsService.ActiveEscrowError) {
+      return res.status(409).json({ message: error.message });
+    }
     return res.status(400).json({ message: error.message || "Failed to delete request" });
   }
 }

@@ -22,6 +22,7 @@ async function createRequest(data) {
             economicBenefit: data.economicBenefit,
             participantsNeeded: data.participantsNeeded,
             deadline: data.deadline,
+            isFeatured: data.isFeatured ?? false,
             tags: {
                 create: data.tagIds.map((tagId) => ({
                     tag: { connect: { id: tagId } },
@@ -47,7 +48,8 @@ async function getRequests(filters) {
             tags: { include: { tag: true } },
             applications: true,
         },
-        orderBy: { createdAt: "desc" },
+        // Las solicitudes de usuarios Pro aparecen primero.
+        orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
     });
 }
 async function getRequestById(id) {

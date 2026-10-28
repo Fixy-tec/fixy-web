@@ -46,6 +46,7 @@ const ratingsRepository = __importStar(require("../repositories/ratings.reposito
 const pointlogRepository = __importStar(require("../../pointlog/repositories/pointlog.repository"));
 const notificationsService = __importStar(require("../../notifications/services/notifications.service"));
 const pointsUtils = __importStar(require("../../../utils/points.utils"));
+const paymentsService = __importStar(require("../../payments/services/payments.service"));
 const prisma_1 = __importDefault(require("../../../prisma"));
 async function createRating(input) {
     if (!input.applicationId || !input.raterId) {
@@ -142,7 +143,21 @@ async function createRating(input) {
             });
         }
     }
+    await releaseEscrowSafely(input.applicationId);
     return rating;
+}
+/**
+ * Si ya existen ambas calificaciones, libera el pago en garantía. Un fallo
+ * aquí no debe invalidar la calificación ya registrada (el admin puede liberar
+ * a mano), así que solo se loguea.
+ */
+async function releaseEscrowSafely(applicationId) {
+    try {
+        await paymentsService.releaseEscrowIfBothRated(applicationId);
+    }
+    catch (error) {
+        console.error(`[ratings] No se pudo liberar la garantía de ${applicationId}:`, error);
+    }
 }
 async function getRating(id) {
     const rating = await ratingsRepository.getRating(id);
@@ -260,5 +275,6 @@ async function createApplicantRating(input) {
             });
         }
     }
+    await releaseEscrowSafely(input.applicationId);
     return rating;
 }

@@ -41,6 +41,8 @@ exports.notifyApplicationAccepted = notifyApplicationAccepted;
 exports.notifyApplicationRejected = notifyApplicationRejected;
 exports.notifyRatingReceived = notifyRatingReceived;
 exports.notifyRankUp = notifyRankUp;
+exports.notifyRequestCompleted = notifyRequestCompleted;
+exports.notifyPaymentUpdate = notifyPaymentUpdate;
 const notificationsRepository = __importStar(require("../repositories/notifications.repository"));
 const MEDAL_LABEL = {
     HIERRO: "Hierro",
@@ -147,6 +149,28 @@ async function notifyRankUp(args) {
             newMedal: args.newMedal,
             previousMedal: args.previousMedal,
             newPoints: args.newPoints,
+        },
+    });
+}
+async function notifyRequestCompleted(args) {
+    return safeCreate({
+        userId: args.userId,
+        type: "REQUEST_COMPLETED",
+        title: "Solicitud completada",
+        message: `"${args.requestTitle}" se marcó como completada. Califica a tu compañero para cerrar el ciclo.`,
+        data: { requestId: args.requestId },
+    });
+}
+/** Cualquier novedad de un pago (aprobado, retenido, liberado, rechazado…). */
+async function notifyPaymentUpdate(args) {
+    return safeCreate({
+        userId: args.userId,
+        type: "PAYMENT_UPDATE",
+        title: args.title,
+        message: args.message,
+        data: {
+            paymentId: args.paymentId,
+            ...(args.requestId ? { requestId: args.requestId } : {}),
         },
     });
 }

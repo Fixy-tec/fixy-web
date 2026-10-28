@@ -1,23 +1,15 @@
 /**
- * Dominios institucionales permitidos.
- * Para multi-institución futura: ampliar este mapa (ej. UNSA → @uns.edu.pe).
+ * Registro libre: se acepta cualquier correo. Los dominios de este mapa solo
+ * sirven para autocompletar la institución del usuario.
  */
-export const INSTITUTIONAL_EMAIL_SUFFIXES = ["@tecsup.edu.pe"] as const;
+const INSTITUTION_BY_EMAIL_SUFFIX: Record<string, string> = {
+  "@tecsup.edu.pe": "TECSUP",
+};
 
-export const DEFAULT_INSTITUTION = "TECSUP";
-
-export const INSTITUTIONAL_REJECTION_MESSAGE =
-  "Fixy actualmente solo está disponible para estudiantes de TECSUP.";
-
-export function validateInstitutionalEmail(email: string): boolean {
+export function getInstitutionForEmail(email: string): string | null {
   const normalized = email.toLowerCase().trim();
-  return INSTITUTIONAL_EMAIL_SUFFIXES.some((suffix) =>
-    normalized.endsWith(suffix),
-  );
-}
-
-export function getInstitutionForEmail(email: string): string {
-  const normalized = email.toLowerCase().trim();
-  if (normalized.endsWith("@tecsup.edu.pe")) return "TECSUP";
-  return DEFAULT_INSTITUTION;
+  for (const [suffix, institution] of Object.entries(INSTITUTION_BY_EMAIL_SUFFIX)) {
+    if (normalized.endsWith(suffix)) return institution;
+  }
+  return null;
 }

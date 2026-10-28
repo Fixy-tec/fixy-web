@@ -67,11 +67,18 @@ function mapUserToDto(user: {
 }
 
 async function userHasActiveAcademicProcesses(userId: string): Promise<boolean> {
-  const [activeRequests, acceptedApplications] = await Promise.all([
+  const [activeRequests, acceptedApplications, activePayments] = await Promise.all([
     adminRepository.countActiveRequestsByUser(userId),
     adminRepository.countAcceptedApplicationsByUser(userId),
+    // Dinero en garantía o en verificación, como pagador o como ayudante.
+    prisma.payment.count({
+      where: {
+        status: { in: ["PENDING", "HELD"] },
+        OR: [{ payerId: userId }, { payeeId: userId }],
+      },
+    }),
   ]);
-  return activeRequests > 0 || acceptedApplications > 0;
+  return activeRequests > 0 || acceptedApplications > 0 || activePayments > 0;
 }
 
 export async function listUsers(

@@ -36,6 +36,7 @@ function UserActions({
   onDelete: () => void;
 }) {
   const locked = user.isRootAdmin;
+  const inactive = user.status !== "ACTIVE";
   return (
     <div className="flex items-center justify-end gap-1">
       <Link
@@ -56,10 +57,10 @@ function UserActions({
       </button>
       <button
         type="button"
-        disabled={locked}
+        disabled={locked || inactive}
         onClick={onDelete}
         className="p-2 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 disabled:opacity-40"
-        title="Eliminar"
+        title={inactive ? "Usuario ya desactivado" : "Eliminar"}
       >
         <Trash2 className="w-4 h-4" />
       </button>
@@ -205,7 +206,7 @@ export default function AdminUsersTable({
               </button>
               <button
                 type="button"
-                disabled={user.isRootAdmin}
+                disabled={user.isRootAdmin || user.status !== "ACTIVE"}
                 onClick={() => onDelete(user)}
                 className="flex-1 py-2 rounded-xl bg-red-50 text-red-600 text-xs font-semibold disabled:opacity-40"
               >

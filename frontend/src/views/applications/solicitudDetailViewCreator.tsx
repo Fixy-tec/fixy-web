@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BookOpen,
@@ -20,11 +20,21 @@ import {
   AlertTriangle,
   CalendarPlus,
   Star,
+  CheckCircle2,
+  ShieldCheck,
 } from "lucide-react";
 
+import { useAuth } from "@/src/context/AuthContext";
 import { useRequest } from "@/src/context/RequestContext";
 import CountdownTimer from "@/src/components/countdownTimer";
 import RatingModal from "@/src/components/modals/ratingModal";
+import EscrowCheckoutModal from "@/src/components/payments/EscrowCheckoutModal";
+import EscrowStatusCard from "@/src/components/payments/EscrowStatusCard";
+import {
+  fetchEscrowForRequest,
+  formatPen,
+  type PaymentDto,
+} from "@/src/lib/payment";
 import type {
   PostulanteDetalle,
   SolicitudDetailData,
@@ -66,13 +76,54 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
     calificarPostulante,
     isRating,
     ratingError,
+    completarSolicitud,
+    isCompleting,
+    reloadCurrentDetail,
   } = useRequest();
+  const { token } = useAuth();
 
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [extendOpen, setExtendOpen] = useState(false);
   const [newDeadline, setNewDeadline] = useState("");
   const [localError, setLocalError] = useState<string | null>(null);
   const [rateTarget, setRateTarget] = useState<PostulanteDetalle | null>(null);
+  const [completeOpen, setCompleteOpen] = useState(false);
+
+  /**
+   * Asesoría con monto: aceptar a un postulante exige pagar primero y el
+   * dinero queda en garantía hasta que ambos se califiquen.
+   */
+  const requiresEscrow = s.tipo === "Asesoría" && (s.beneficioMonto ?? 0) > 0;
+  const escrowAmountCents = Math.round((s.beneficioMonto ?? 0) * 100);
+  const [escrowPayments, setEscrowPayments] = useState<PaymentDto[]>([]);
+  const [escrowTarget, setEscrowTarget] = useState<PostulanteDetalle | null>(null);
+
+  const loadEscrow = useCallback(async () => {
+    if (!requiresEscrow || !token) return;
+    try {
+      setEscrowPayments(await fetchEscrowForRequest(token, s.id));
+    } catch {
+      /* el estado del pago es informativo; no bloquea la vista */
+    }
+  }, [requiresEscrow, token, s.id]);
+
+  useEffect(() => {
+    if (!requiresEscrow || !token) return;
+    let cancelled = false;
+    fetchEscrowForRequest(token, s.id)
+      .then((payments) => {
+        if (!cancelled) setEscrowPayments(payments);
+      })
+      .catch(() => {
+        /* informativo: no bloquea la vista */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [requiresEscrow, token, s.id]);
+
+  const currentEscrow = escrowPayments.find((p) => p.status !== "REJECTED") ?? null;
+  const escrowInVerification = escrowPayments.some((p) => p.status === "PENDING");
 
   /** Postulantes aceptados (para mostrar arriba y calcular cupos) */
   const acceptedApps = useMemo(
@@ -162,11 +213,30 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
     }
   };
 
-  const handleAceptar = async (applicationId: string) => {
+  const handleAceptar = async (postulante: PostulanteDetalle) => {
+    if (requiresEscrow) {
+      setEscrowTarget(postulante);
+      return;
+    }
     try {
-      await aceptarPostulante(applicationId);
+      await aceptarPostulante(postulante.applicationId);
     } catch {
       /* el error vive en applicationActionError */
+    }
+  };
+
+  const handleEscrowPaid = async () => {
+    setEscrowTarget(null);
+    await Promise.all([reloadCurrentDetail(), loadEscrow()]);
+  };
+
+  const handleComplete = async () => {
+    setLocalError(null);
+    try {
+      await completarSolicitud(s.id);
+      setCompleteOpen(false);
+    } catch (e) {
+      setLocalError(e instanceof Error ? e.message : "No se pudo completar la solicitud");
     }
   };
 
@@ -182,6 +252,8 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
     if (!rateTarget) return;
     await calificarPostulante(rateTarget.applicationId, stars, comment);
     setRateTarget(null);
+    // Si el ayudante ya había calificado, este rating libera la garantía.
+    void loadEscrow();
   };
 
   const todayIso = new Date().toISOString().split("T")[0];
@@ -306,8 +378,9 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
                   Solicitud completada
                 </p>
                 <p className="text-sm">
-                  El plazo terminó. Califica a los participantes para cerrar el
-                  ciclo y otorgar puntos.
+                  La solicitud terminó. Califica a los participantes para cerrar
+                  el ciclo y otorgar puntos
+                  {currentEscrow?.status === "HELD" ? " (y liberar el pago)" : ""}.
                 </p>
               </div>
             ) : s.statusRaw === "CANCELADA" ? (
@@ -347,6 +420,26 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
             </span>
           </div>
         </div>
+
+        {/* Pago en garantía (asesorías con monto) */}
+        {requiresEscrow && (
+          <div className="mb-4">
+            {currentEscrow ? (
+              <EscrowStatusCard payment={currentEscrow} viewer="creator" />
+            ) : (
+              canManagePostulants && (
+                <div className="flex gap-3 rounded-xl border border-[#1a4ca3]/15 bg-[#eff4ff] px-4 py-3 text-[#143d87]">
+                  <ShieldCheck className="w-5 h-5 shrink-0 mt-0.5" />
+                  <p className="text-xs leading-relaxed">
+                    <span className="font-semibold">Asesoría con pago en garantía.</span>{" "}
+                    Al aceptar a un postulante pagas {formatPen(escrowAmountCents)}; el
+                    dinero queda retenido y se le libera cuando ambos se califiquen.
+                  </p>
+                </div>
+              )
+            )}
+          </div>
+        )}
 
         {/* Lista postulantes */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
@@ -447,21 +540,31 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
                     <div className="flex gap-2 flex-wrap">
                       <button
                         type="button"
-                        onClick={() => handleAceptar(p.applicationId)}
-                        disabled={isUpdatingApplication || cuposRestantes <= 0}
+                        onClick={() => handleAceptar(p)}
+                        disabled={
+                          isUpdatingApplication ||
+                          cuposRestantes <= 0 ||
+                          escrowInVerification
+                        }
                         title={
                           cuposRestantes <= 0
                             ? "Ya alcanzaste el cupo máximo"
-                            : undefined
+                            : escrowInVerification
+                              ? "Hay un pago en verificación"
+                              : undefined
                         }
                         className="flex items-center gap-1.5 bg-[#057f78] hover:bg-[#046860] text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {isUpdatingApplication ? (
                           <Loader2 size={13} className="animate-spin" />
+                        ) : requiresEscrow ? (
+                          <ShieldCheck size={13} />
                         ) : (
                           <Check size={13} />
                         )}
-                        Aceptar
+                        {requiresEscrow
+                          ? `Pagar ${formatPen(escrowAmountCents)} y aceptar`
+                          : "Aceptar"}
                       </button>
 
                       <button
@@ -502,6 +605,21 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
 
         {/* Actions */}
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+          {isInProgress && (
+            <button
+              type="button"
+              onClick={() => {
+                setLocalError(null);
+                setCompleteOpen(true);
+              }}
+              disabled={isCompleting}
+              className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl text-sm transition-colors mb-3 disabled:opacity-50"
+            >
+              <CheckCircle2 size={15} />
+              Marcar como completada
+            </button>
+          )}
+
           {canExtend && (
             <button
               type="button"
@@ -669,6 +787,61 @@ export default function SolicitudDetailViewCreator({ solicitud: s }: Props) {
                   <CalendarPlus size={14} />
                 )}
                 {isExtending ? "Aplazando…" : "Aplazar"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de pago en garantía */}
+      {escrowTarget && (
+        <EscrowCheckoutModal
+          applicationId={escrowTarget.applicationId}
+          applicantName={escrowTarget.nombre}
+          requestTitle={s.titulo}
+          amountCents={escrowAmountCents}
+          onClose={() => setEscrowTarget(null)}
+          onPaid={handleEscrowPaid}
+        />
+      )}
+
+      {/* Confirmar completar */}
+      {completeOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 w-full max-w-sm p-6">
+            <div className="flex items-start gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                <CheckCircle2 size={18} className="text-emerald-600" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-gray-800 mb-1">
+                  ¿La ayuda ya se completó?
+                </h3>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  Se habilitan las calificaciones.
+                  {currentEscrow?.status === "HELD" &&
+                    " El pago en garantía se libera cuando ambos se califiquen."}
+                </p>
+              </div>
+            </div>
+            {localError && <p className="text-xs text-red-600 mb-3">{localError}</p>}
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setCompleteOpen(false)}
+                disabled={isCompleting}
+                className="px-4 py-2 rounded-lg text-sm font-medium text-gray-600 hover:bg-gray-50"
+              >
+                Todavía no
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleComplete()}
+                disabled={isCompleting}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold text-white bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {isCompleting && <Loader2 size={14} className="animate-spin" />}
+                Sí, completar
               </button>
             </div>
           </div>

@@ -12,4 +12,5 @@ router.post("/", auth_middleware_1.authenticateJWT, request_controller_1.createR
 router.patch("/:id", auth_middleware_1.authenticateJWT, request_controller_1.updateRequest);
 router.delete("/:id", auth_middleware_1.authenticateJWT, request_controller_1.deleteRequest);
 router.post("/:id/extend-deadline", auth_middleware_1.authenticateJWT, request_controller_1.extendDeadline);
+router.post("/:id/complete", auth_middleware_1.authenticateJWT, request_controller_1.completeRequest);
 exports.default = router;

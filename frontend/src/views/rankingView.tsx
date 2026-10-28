@@ -1,5 +1,6 @@
 "use client";
 
+import ProBadge from "@/src/components/ProBadge";
 import { useMemo, useState } from "react";
 import Image from "next/image";
 import {
@@ -429,6 +430,7 @@ const RankingView = () => {
                             <p className="text-sm font-semibold text-gray-800 truncate">
                               {student.name}
                             </p>
+                            {student.isPro && <ProBadge />}
                             <Image
                               src={medal.image}
                               alt={medal.name}

@@ -2,11 +2,93 @@ import prisma from "../../../prisma";
 import { Prisma } from "@prisma/client";
 import * as userRepository from "../repositories/user.repository";
 import * as tagRepository from "../../tags/repositories/tag.repository";
+import { isProActive, PlanRequiredError, type PlanFields } from "../../plans/plan.utils";
 
-function toPublicUser<T extends { password?: string | null }>(user: T | null) {
+function toPublicUser<T extends { password?: string | null } & PlanFields>(user: T | null) {
   if (!user) return null;
   const { password: _pw, ...rest } = user;
-  return rest;
+  return { ...rest, isPro: isProActive(user) };
+}
+
+export async function registerProfileView(userId: string) {
+  await prisma.profile.updateMany({
+    where: { userId },
+    data: { profileViews: { increment: 1 } },
+  });
+}
+
+/** Estadísticas del plan Pro: visitas, tasa de aceptación y ganancias. */
+export async function getProStats(userId: string) {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: {
+      plan: true,
+      planExpiresAt: true,
+      profile: { select: { profileViews: true } },
+    },
+  });
+  if (!user) {
+    throw new Error("User not found");
+  }
+  if (!isProActive(user)) {
+    throw new PlanRequiredError("Las estadísticas son exclusivas del plan Pro");
+  }
+
+  const [
+    applicationsSent,
+    applicationsAccepted,
+    requestsCreated,
+    requestsCompleted,
+    released,
+    held,
+    recentEarnings,
+  ] = await Promise.all([
+    prisma.application.count({ where: { applicantId: userId } }),
+    prisma.application.count({ where: { applicantId: userId, status: "ACEPTADA" } }),
+    prisma.request.count({ where: { creatorId: userId } }),
+    prisma.request.count({ where: { creatorId: userId, status: "COMPLETADA" } }),
+    prisma.payment.aggregate({
+      where: { payeeId: userId, status: "RELEASED" },
+      _sum: { payoutCents: true },
+      _count: { _all: true },
+    }),
+    prisma.payment.aggregate({
+      where: { payeeId: userId, status: "HELD" },
+      _sum: { amountCents: true },
+    }),
+    prisma.payment.findMany({
+      where: { payeeId: userId, status: "RELEASED" },
+      orderBy: { releasedAt: "desc" },
+      take: 10,
+      select: {
+        id: true,
+        code: true,
+        description: true,
+        payoutCents: true,
+        commissionCents: true,
+        mode: true,
+        releasedAt: true,
+      },
+    }),
+  ]);
+
+  return {
+    profileViews: user.profile?.profileViews ?? 0,
+    applicationsSent,
+    applicationsAccepted,
+    acceptanceRate:
+      applicationsSent > 0
+        ? Math.round((applicationsAccepted / applicationsSent) * 100)
+        : 0,
+    requestsCreated,
+    requestsCompleted,
+    earnings: {
+      totalCents: released._sum.payoutCents ?? 0,
+      count: released._count._all,
+      heldCents: held._sum.amountCents ?? 0,
+      recent: recentEarnings,
+    },
+  };
 }
 
 export async function getUsers() {
@@ -110,6 +192,8 @@ export async function getUsersRanking(options?: {
       points: true,
       medal: true,
       createdAt: true,
+      plan: true,
+      planExpiresAt: true,
       profile: {
         select: {
           avatarUrl: true,
@@ -152,6 +236,7 @@ export async function getUsersRanking(options?: {
     name: u.name,
     points: u.points,
     medal: u.medal,
+    isPro: isProActive(u),
     rank: ranks[i] ?? i + 1,
     completedRequests: completedByUser.get(u.id) ?? 0,
     profile: u.profile

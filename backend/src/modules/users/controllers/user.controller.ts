@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import * as userService from "../services/user.service";
 import { AuthRequest } from "../../../middlewares/auth.middleware";
 import { ZodError } from "zod";
+import { PlanRequiredError } from "../../plans/plan.utils";
 
 import { updateProfileSchema }
 from "../../../validators/user.schema";
@@ -88,6 +89,24 @@ export async function updateCurrentUser(
 }
 
 
+/** GET /users/me/stats — estadísticas del plan Pro. */
+export async function getMyStats(req: Request, res: Response) {
+  const userId = (req as AuthRequest).user?.userId;
+  if (!userId) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  try {
+    const stats = await userService.getProStats(userId);
+    return res.json({ stats });
+  } catch (error: any) {
+    if (error instanceof PlanRequiredError) {
+      return res.status(403).json({ message: error.message, code: error.code });
+    }
+    console.error("[GET /users/me/stats] error:", error);
+    return res.status(500).json({ message: "No se pudieron cargar las estadísticas" });
+  }
+}
+
 export async function getUsers(_req: Request, res: Response) {
   const users = await userService.getUsers();
   return res.json({ users });
@@ -111,6 +130,13 @@ export async function getUserById(req: Request, res: Response) {
     const user = await userService.getUserById(id);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
+    }
+    // Visitas al perfil (estadística Pro): no cuenta cuando uno se mira a sí mismo.
+    const viewerId = (req as AuthRequest).user?.userId;
+    if (viewerId && viewerId !== id) {
+      void userService.registerProfileView(id).catch((error) =>
+        console.error("[GET /users/:id] profile view:", error),
+      );
     }
     return res.json({ user });
   } catch (error: any) {

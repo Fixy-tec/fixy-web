@@ -1,46 +1,43 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.registerSchema = void 0;
+exports.loginSchema = exports.registerSchema = void 0;
 const zod_1 = require("zod");
 const text_utils_1 = require("../utils/text.utils");
-// Permite formato `nombre@tecsup.edu.pe` y `nombre.apellido@tecsup.edu.pe`
-// (uno o más bloques de letras separados por un único punto). No permite
-// puntos al inicio/fin ni dos puntos seguidos.
-const TECSUP_EMAIL_REGEX = /^[A-Za-z]+(?:\.[A-Za-z]+)*@tecsup\.edu\.pe$/;
+/**
+ * Registro libre: cualquier correo. El nombre sigue las mismas reglas que el
+ * nombre de usuario del onboarding (`user.schema.ts`), para que no choquen.
+ */
 exports.registerSchema = zod_1.z.object({
     email: zod_1.z
         .string()
-        .regex(TECSUP_EMAIL_REGEX, {
-        message: "Email must be institutional (@tecsup.edu.pe) and contain only letters and dots before the domain",
-    })
-        .transform((value) => value.toLowerCase().trim()),
+        .trim()
+        .toLowerCase()
+        .max(120, { message: "El correo es demasiado largo" })
+        .email({ message: "Ingresa un correo válido" }),
     name: zod_1.z
         .string()
-        .min(2, {
-        message: "Username must contain at least 2 characters",
-    })
-        .max(15, {
-        message: "Username must not exceed 15 characters",
-    })
+        .trim()
+        .min(2, { message: "El nombre de usuario debe tener al menos 2 letras" })
+        .max(15, { message: "El nombre de usuario no puede superar 15 letras" })
         .regex(/^[A-Za-zÁÉÍÓÚÜÑáéíóúüñ]+$/, {
-        message: "Username can contain only letters (accents and ñ allowed)",
+        message: "El nombre de usuario solo puede tener letras (sin espacios)",
     })
         .refine((value) => !(0, text_utils_1.containsEmoji)(value), {
-        message: "Username cannot contain emojis",
+        message: "El nombre de usuario no puede tener emojis",
     })
         .transform((value) => (0, text_utils_1.normalizeUsername)(value)),
     password: zod_1.z
         .string()
-        .min(8, {
-        message: "Password must contain at least 8 characters",
-    })
-        .max(20, {
-        message: "Password must not exceed 20 characters",
-    })
+        .min(8, { message: "La contraseña debe tener al menos 8 caracteres" })
+        .max(64, { message: "La contraseña no puede superar 64 caracteres" })
         .regex(/^(?=.*[A-Za-z])(?=.*\d)/, {
-        message: "Password must contain letters and numbers",
+        message: "La contraseña debe combinar letras y números",
     })
         .refine((value) => !(0, text_utils_1.containsEmoji)(value), {
-        message: "Password cannot contain emojis",
+        message: "La contraseña no puede tener emojis",
     }),
+});
+exports.loginSchema = zod_1.z.object({
+    email: zod_1.z.string().trim().toLowerCase().email({ message: "Ingresa un correo válido" }),
+    password: zod_1.z.string().min(1, { message: "Ingresa tu contraseña" }).max(128),
 });

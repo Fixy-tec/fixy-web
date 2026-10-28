@@ -5,6 +5,7 @@ import {
   getUsers,
   getUserById,
   getRanking,
+  getMyStats,
 } from "../modules/users/controllers/user.controller";
 import { authenticateJWT, requireRole } from "../middlewares/auth.middleware";
 
@@ -12,6 +13,7 @@ const router = Router();
 
 router.get("/me", authenticateJWT, getCurrentUser);
 router.patch("/me", authenticateJWT, updateCurrentUser);
+router.get("/me/stats", authenticateJWT, getMyStats);
 
 // IMPORTANTE: `/ranking` debe ir antes de `/:id` para no chocar contra
 // el handler dinámico de Express.

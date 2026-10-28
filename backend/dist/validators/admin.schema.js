@@ -8,6 +8,8 @@ exports.listUsersQuerySchema = zod_1.z.object({
     limit: zod_1.z.coerce.number().int().min(1).max(100).default(20),
     role: zod_1.z.nativeEnum(client_1.Role).optional(),
     search: zod_1.z.string().trim().optional(),
+    // Por defecto solo activos: un usuario "eliminado" (soft delete) no debe seguir en la lista.
+    status: zod_1.z.enum(["ACTIVE", "INACTIVE", "ALL"]).default("ACTIVE"),
 });
 exports.listLogsQuerySchema = zod_1.z.object({
     page: zod_1.z.coerce.number().int().min(1).default(1),

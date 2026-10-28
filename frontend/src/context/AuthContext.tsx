@@ -34,6 +34,8 @@ const PROTECTED_PREFIXES = [
   "/users",
   "/home",
   "/admin",
+  "/checkout",
+  "/pagos",
 ];
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

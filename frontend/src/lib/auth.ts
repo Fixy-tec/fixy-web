@@ -8,11 +8,46 @@ export interface AuthUser {
   role: string;
   profileCompleted: boolean;
   institution?: string | null;
+  plan?: "FREE" | "PRO";
+  isPro?: boolean;
+  planExpiresAt?: string | null;
 }
 
 export interface AuthResponse {
   user: AuthUser;
   accessToken: string;
+}
+
+async function postAuth(path: string, body: unknown, fallback: string): Promise<AuthResponse> {
+  const response = await fetch(`${API_BASE}${path}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const data = (await response.json().catch(() => null)) as
+    | (AuthResponse & { message?: string })
+    | null;
+  if (!response.ok || !data?.accessToken) {
+    throw new Error(data?.message ?? fallback);
+  }
+  return data;
+}
+
+/** POST /auth/register — registro libre con cualquier correo. */
+export function registerWithPassword(input: {
+  name: string;
+  email: string;
+  password: string;
+}): Promise<AuthResponse> {
+  return postAuth("/auth/register", input, "No se pudo crear la cuenta");
+}
+
+/** POST /auth/login — correo + contraseña. */
+export function loginWithPassword(input: {
+  email: string;
+  password: string;
+}): Promise<AuthResponse> {
+  return postAuth("/auth/login", input, "No se pudo iniciar sesión");
 }
 
 export const AUTH_TOKEN_KEY = "auth_token";

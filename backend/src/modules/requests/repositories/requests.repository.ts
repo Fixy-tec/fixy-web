@@ -13,6 +13,7 @@ export interface CreateRequestInput {
   deadline?: Date;
   /** UUIDs de filas en Tag; se enlazan vía RequestTag */
   tagIds: string[];
+  isFeatured?: boolean;
 }
 
 export interface UpdateRequestInput {
@@ -40,6 +41,7 @@ export async function createRequest(data: CreateRequestInput) {
       economicBenefit: data.economicBenefit,
       participantsNeeded: data.participantsNeeded,
       deadline: data.deadline,
+      isFeatured: data.isFeatured ?? false,
       tags: {
         create: data.tagIds.map((tagId) => ({
           tag: { connect: { id: tagId } },
@@ -70,7 +72,8 @@ export async function getRequests(filters?: {
       tags: { include: { tag: true } },
       applications: true,
     },
-    orderBy: { createdAt: "desc" },
+    // Las solicitudes de usuarios Pro aparecen primero.
+    orderBy: [{ isFeatured: "desc" }, { createdAt: "desc" }],
   });
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   BookOpen,
@@ -23,6 +24,8 @@ import { useAuth } from "@/src/context/AuthContext";
 import { useRequest } from "@/src/context/RequestContext";
 import CountdownTimer from "@/src/components/countdownTimer";
 import RatingModal from "@/src/components/modals/ratingModal";
+import EscrowStatusCard from "@/src/components/payments/EscrowStatusCard";
+import { fetchEscrowForRequest, type PaymentDto } from "@/src/lib/payment";
 import type { SolicitudDetailData } from "@/src/lib/solicitudMappers";
 
 const statusStyle: Record<string, string> = {
@@ -49,7 +52,7 @@ interface Props {
 
 export default function SolicitudDetailView({ solicitud: s }: Props) {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const {
     postular,
     isApplying,
@@ -121,10 +124,44 @@ export default function SolicitudDetailView({ solicitud: s }: Props) {
     }
   };
 
+  /** Pago en garantía de mi postulación (solo asesorías con monto). */
+  const requiresEscrow = s.tipo === "Asesoría" && (s.beneficioMonto ?? 0) > 0;
+  const [myEscrow, setMyEscrow] = useState<PaymentDto | null>(null);
+  const hasApplication = myApplication != null;
+  const loadEscrow = useCallback(async () => {
+    if (!requiresEscrow || !token || !hasApplication) return null;
+    const payments = await fetchEscrowForRequest(token, s.id);
+    return payments.find((p) => p.status !== "REJECTED") ?? null;
+  }, [requiresEscrow, token, hasApplication, s.id]);
+
+  const refreshEscrow = useCallback(() => {
+    loadEscrow()
+      .then(setMyEscrow)
+      .catch(() => {
+        /* informativo: no bloquea la vista */
+      });
+  }, [loadEscrow]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadEscrow()
+      .then((payment) => {
+        if (!cancelled) setMyEscrow(payment);
+      })
+      .catch(() => {
+        /* informativo: no bloquea la vista */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadEscrow]);
+
   const handleSubmitRating = async (stars: number, comment?: string) => {
     if (!myApplication) return;
     await calificarCreador(myApplication.applicationId, stars, comment);
     setRateModalOpen(false);
+    // Si el creador ya había calificado, este rating libera la garantía.
+    refreshEscrow();
   };
 
   return (
@@ -365,6 +402,12 @@ export default function SolicitudDetailView({ solicitud: s }: Props) {
               </span>
             </div>
 
+            {myEscrow && (
+              <div className="mb-3">
+                <EscrowStatusCard payment={myEscrow} viewer="applicant" />
+              </div>
+            )}
+
             {/* Sólo dejamos retirar si sigue PENDIENTE y el request aún acepta */}
             {myApplication.status === "PENDIENTE" && s.status === "Abierta" && (
               <button
@@ -446,6 +489,14 @@ export default function SolicitudDetailView({ solicitud: s }: Props) {
             {(localError || applyError) && (
               <p className="mt-3 text-xs text-red-600">
                 {localError ?? applyError}
+                {/plan Free/i.test(applyError ?? "") && (
+                  <Link
+                    href="/planes"
+                    className="ml-1 font-semibold text-[#1a4ca3] hover:underline"
+                  >
+                    Ver planes →
+                  </Link>
+                )}
               </p>
             )}
           </div>

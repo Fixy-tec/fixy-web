@@ -22,7 +22,13 @@ model User {
   isRootAdmin            Boolean                 @default(false)
   profileCompleted       Boolean                 @default(false)
   institution            String?                 @default("TECSUP")
+  /// El plan es efectivo solo mientras `planExpiresAt` esté en el futuro.
+  plan                   PlanType                @default(FREE)
+  planExpiresAt          DateTime?
   applications           Application[]           @relation("AppliedBy")
+  paymentsMade           Payment[]               @relation("PaymentPayer")
+  paymentsReceived       Payment[]               @relation("PaymentPayee")
+  paymentsReviewed       Payment[]               @relation("PaymentReviewer")
   adminLogsPerformed     AdminLog[]              @relation("AdminActions")
   adminLogsTargeted      AdminLog[]              @relation("AdminTargets")
   deviceTokens           DeviceToken[]
@@ -52,6 +58,7 @@ model Profile {
   linkedinUrl  String?
   portfolioUrl String?
   githubUrl    String?
+  profileViews Int     @default(0)
   user         User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
@@ -98,12 +105,15 @@ model Request {
   participantsNeeded Int           @default(1)
   updatedAt          DateTime      @updatedAt
   isExpired          Boolean       @default(false)
+  /// Solicitudes de usuarios Pro: se muestran primero en el feed.
+  isFeatured         Boolean       @default(false)
   applications       Application[] @relation("AppliedTo")
   pointLogs          PointLog[]
   creator            User          @relation("CreatedBy", fields: [creatorId], references: [id], onDelete: Cascade)
   tags               RequestTag[]
 
   @@index([creatorId])
+  @@index([isFeatured])
   @@index([status])
   @@index([createdAt])
   @@index([difficulty])
@@ -120,6 +130,7 @@ model Application {
   applicant   User              @relation("AppliedBy", fields: [applicantId], references: [id], onDelete: Cascade)
   request     Request           @relation("AppliedTo", fields: [requestId], references: [id], onDelete: Cascade)
   ratings     Rating[]
+  payment     Payment?
 
   @@unique([requestId, applicantId])
   @@index([requestId])
@@ -223,6 +234,127 @@ enum NotificationType {
   REQUEST_COMPLETED
   NEW_MATCH
   RANK_UP
+  PAYMENT_UPDATE
+}
+
+enum PlanType {
+  FREE
+  PRO
+}
+
+enum BillingPeriod {
+  MONTHLY
+  YEARLY
+}
+
+enum PaymentPurpose {
+  PLAN_SUBSCRIPTION
+  ASESORIA_ESCROW
+}
+
+enum PaymentMethod {
+  CARD
+  YAPE
+}
+
+/// TEST = pasarela simulada (no mueve dinero). LIVE = dinero real verificado por un admin.
+enum PaymentMode {
+  TEST
+  LIVE
+}
+
+/// PENDING: Yape esperando verificación del admin.
+/// APPROVED: pago de plan acreditado.
+/// HELD: pago de asesoría retenido en garantía.
+/// RELEASED: garantía liberada al ayudante. REFUNDED: devuelta al pagador.
+enum PaymentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  HELD
+  RELEASED
+  REFUNDED
+}
+
+/// Montos en céntimos (Int) para evitar errores de redondeo con decimales.
+/// Nunca se guarda el número completo de la tarjeta ni el CVV.
+model Payment {
+  id              String         @id @default(dbgenerated("gen_random_uuid()"))
+  code            String         @unique
+  purpose         PaymentPurpose
+  method          PaymentMethod
+  mode            PaymentMode
+  status          PaymentStatus
+  amountCents     Int
+  commissionCents Int            @default(0)
+  payoutCents     Int?
+  currency        String         @default("PEN") @db.VarChar(3)
+  description     String
+  payerId         String
+  payeeId         String?
+  applicationId   String?        @unique
+  planPeriod      BillingPeriod?
+  cardBrand       String?
+  cardLast4       String?        @db.VarChar(4)
+  cardHolder      String?
+  yapeOperation   String?
+  declineReason   String?
+  reviewedById    String?
+  reviewedAt      DateTime?
+  releasedAt      DateTime?
+  refundedAt      DateTime?
+  payoutSentAt    DateTime?
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+  payer           User           @relation("PaymentPayer", fields: [payerId], references: [id], onDelete: Restrict)
+  payee           User?          @relation("PaymentPayee", fields: [payeeId], references: [id], onDelete: SetNull)
+  reviewedBy      User?          @relation("PaymentReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  application     Application?   @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+
+  @@index([payerId])
+  @@index([payeeId])
+  @@index([status])
+  @@index([purpose])
+  @@index([createdAt])
+}
+
+enum InvestmentCategory {
+  INFRAESTRUCTURA
+  MARKETING
+  DISENO
+  DESARROLLO
+  OTROS
+}
+
+/// Lo invertido en el negocio (hosting, dominio, publicidad…). Base del ROI.
+model Investment {
+  id          String             @id @default(dbgenerated("gen_random_uuid()"))
+  concept     String
+  category    InvestmentCategory @default(OTROS)
+  amountCents Int
+  spentAt     DateTime
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+
+  @@index([spentAt])
+}
+
+/// Configuración única (id = 1) editable desde el panel admin.
+model PaymentSettings {
+  id                 Int      @id @default(1)
+  proMonthlyCents    Int      @default(990)
+  proYearlyCents     Int      @default(8990)
+  /// Comisión que la app retiene a ayudantes Free en asesorías pagadas (1000 = 10%).
+  freeCommissionBps  Int      @default(1000)
+  cardEnabled        Boolean  @default(true)
+  yapeEnabled        Boolean  @default(true)
+  yapePhone          String?
+  yapeHolder         String?
+  payoutBank         String?
+  payoutHolder       String?
+  payoutAccount      String?
+  payoutCci          String?
+  updatedAt          DateTime @updatedAt
 }
 
 enum Role {

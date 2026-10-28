@@ -36,8 +36,9 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.InvalidTagIdsError = void 0;
+exports.ActiveEscrowError = exports.InvalidTagIdsError = void 0;
 exports.createRequest = createRequest;
+exports.completeRequest = completeRequest;
 exports.expireOverdueRequests = expireOverdueRequests;
 exports.getRequests = getRequests;
 exports.getRequestById = getRequestById;
@@ -48,6 +49,8 @@ const requestsRepository = __importStar(require("../repositories/requests.reposi
 const tagRepository = __importStar(require("../../tags/repositories/tag.repository"));
 const prisma_1 = __importDefault(require("../../../prisma"));
 const admin_realtime_1 = require("../../../realtime/admin.realtime");
+const notificationsService = __importStar(require("../../notifications/services/notifications.service"));
+const plan_utils_1 = require("../../plans/plan.utils");
 class InvalidTagIdsError extends Error {
     constructor() {
         super("Uno o más tags no existen en el catálogo");
@@ -91,15 +94,69 @@ async function createRequest(input) {
     if (input.type === "ASESORIA" && input.participantsNeeded !== 1) {
         input.participantsNeeded = 1;
     }
-    // Validate max 5 requests per user
-    const userRequestCount = await requestsRepository.getUserRequestCount(input.creatorId);
-    if (userRequestCount >= 5) {
-        throw new Error("Users can have a maximum of 5 active requests");
+    // Plan Free: máximo de solicitudes activas. Pro: ilimitadas y destacadas.
+    const creator = await prisma_1.default.user.findUnique({
+        where: { id: input.creatorId },
+        select: { plan: true, planExpiresAt: true },
+    });
+    const isPro = creator ? (0, plan_utils_1.isProActive)(creator) : false;
+    if (!isPro) {
+        const userRequestCount = await requestsRepository.getUserRequestCount(input.creatorId);
+        if (userRequestCount >= plan_utils_1.FREE_LIMITS.activeRequests) {
+            throw new plan_utils_1.PlanLimitError(`El plan Free permite ${plan_utils_1.FREE_LIMITS.activeRequests} solicitudes activas a la vez. Mejora a Pro para publicar sin límites.`);
+        }
     }
     const tagIds = await resolveTagIds(input.tagIds);
-    const created = await requestsRepository.createRequest({ ...input, tagIds });
+    const created = await requestsRepository.createRequest({
+        ...input,
+        tagIds,
+        isFeatured: isPro,
+    });
     void (0, admin_realtime_1.notifyAdminDashboardUpdate)();
     return created;
+}
+class ActiveEscrowError extends Error {
+    constructor(action) {
+        super(`No puedes ${action} esta solicitud: tiene un pago en garantía o en verificación. Si hay un problema, contacta a un administrador.`);
+        this.name = "ActiveEscrowError";
+    }
+}
+exports.ActiveEscrowError = ActiveEscrowError;
+async function hasActiveEscrow(requestId) {
+    const count = await prisma_1.default.payment.count({
+        where: {
+            status: { in: ["PENDING", "HELD"] },
+            application: { requestId },
+        },
+    });
+    return count > 0;
+}
+/**
+ * El creador marca como completada una solicitud en proceso. Habilita las
+ * calificaciones mutuas, que a su vez liberan el pago en garantía.
+ */
+async function completeRequest(id) {
+    const request = await requestsRepository.getRequestById(id);
+    if (!request) {
+        throw new Error("Request not found");
+    }
+    if (request.status !== "EN_PROCESO") {
+        throw new Error("Solo puedes completar una solicitud que está en proceso");
+    }
+    const updated = await requestsRepository.updateRequest(id, {
+        status: "COMPLETADA",
+    });
+    for (const app of request.applications) {
+        if (app.status === "ACEPTADA") {
+            void notificationsService.notifyRequestCompleted({
+                userId: app.applicantId,
+                requestTitle: request.title,
+                requestId: request.id,
+            });
+        }
+    }
+    void (0, admin_realtime_1.notifyAdminDashboardUpdate)();
+    return updated;
 }
 /**
  * Auto-expiración perezosa: cada vez que se lee la lista o un detalle de
@@ -204,6 +261,10 @@ async function updateRequest(id, input) {
         }
         tagIds = await resolveTagIds(input.tagIds);
     }
+    // Con dinero en garantía o en verificación, los términos quedan congelados.
+    if (await hasActiveEscrow(id)) {
+        throw new ActiveEscrowError("modificar");
+    }
     const previousStatus = request.status;
     const updated = await requestsRepository.updateRequest(id, { ...input, tagIds });
     if (input.status !== undefined && input.status !== previousStatus) {
@@ -215,6 +276,9 @@ async function deleteRequest(id) {
     const request = await requestsRepository.getRequestById(id);
     if (!request) {
         throw new Error("Request not found");
+    }
+    if (await hasActiveEscrow(id)) {
+        throw new ActiveEscrowError("retirar");
     }
     return requestsRepository.deleteRequest(id);
 }

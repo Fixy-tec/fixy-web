@@ -1,5 +1,5 @@
-import { redirect } from "next/navigation";
+import RegisterView from "@/src/views/auth/registerView";
 
 export default function RegisterPage() {
-  redirect("/auth/login");
+  return <RegisterView />;
 }

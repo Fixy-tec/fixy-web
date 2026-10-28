@@ -1,7 +1,6 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
 import { TrendingUp, Sparkles, Bell, Flame, ChevronRight, Check, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { useAuth } from "@/src/context/AuthContext";
@@ -10,7 +9,7 @@ import {
   formatRelativeTime,
   getNotificationStyle,
 } from "@/src/lib/notification";
-import { getHomePublication, type HomePublication } from "@/src/lib/homeContent";
+import { HOME_PUBLICATION as publication } from "@/src/lib/homeContent";
 
 /** Capitaliza la primera letra (el backend guarda el username en minúsculas). */
 function capitalize(value: string): string {
@@ -28,11 +27,6 @@ const HomeLoggedView = () => {
   } = useNotifications();
   const recentNotifications = notifications.slice(0, 5);
   const displayName = capitalize(user?.name?.trim() || "estudiante");
-  const [publication, setPublication] = useState<HomePublication | null>(null);
-
-  useEffect(() => {
-    setPublication(getHomePublication());
-  }, []);
 
   return (
     <div className="min-h-screen bg-[#f6f8fb]">
@@ -87,7 +81,7 @@ const HomeLoggedView = () => {
           <div className="lg:col-span-5 relative overflow-hidden rounded-4xl min-h-80 shadow-sm">
             <Image
               src={publication.image || "/fixoNews.png"}
-              alt="Fixy News"
+              alt="Helpy News"
               fill
               priority
               className="object-cover"
@@ -225,7 +219,7 @@ const HomeLoggedView = () => {
               </p>
 
               <h3 className="text-2xl font-bold text-gray-800 mt-4">
-                Únete al Discord de Fixy
+                Únete al Discord de Helpy
               </h3>
 
               <p className="text-sm text-gray-500 mt-3 leading-relaxed max-w-md">
@@ -237,7 +231,7 @@ const HomeLoggedView = () => {
               <div className="flex justify-center mt-4">
                 <Image
                   src="/fixoDiscord.png"
-                  alt="Fixy Discord"
+                  alt="Helpy Discord"
                   width={260}
                   height={260}
                   className="object-contain drop-shadow-2xl select-none pointer-events-none animate-float"

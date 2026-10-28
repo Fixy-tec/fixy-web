@@ -35,11 +35,13 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getCurrentUser = getCurrentUser;
 exports.updateCurrentUser = updateCurrentUser;
+exports.getMyStats = getMyStats;
 exports.getUsers = getUsers;
 exports.getUserById = getUserById;
 exports.getRanking = getRanking;
 const userService = __importStar(require("../services/user.service"));
 const zod_1 = require("zod");
+const plan_utils_1 = require("../../plans/plan.utils");
 const user_schema_1 = require("../../../validators/user.schema");
 async function getCurrentUser(req, res) {
     const authReq = req;
@@ -100,6 +102,24 @@ async function updateCurrentUser(req, res) {
         });
     }
 }
+/** GET /users/me/stats — estadísticas del plan Pro. */
+async function getMyStats(req, res) {
+    const userId = req.user?.userId;
+    if (!userId) {
+        return res.status(401).json({ message: "Unauthorized" });
+    }
+    try {
+        const stats = await userService.getProStats(userId);
+        return res.json({ stats });
+    }
+    catch (error) {
+        if (error instanceof plan_utils_1.PlanRequiredError) {
+            return res.status(403).json({ message: error.message, code: error.code });
+        }
+        console.error("[GET /users/me/stats] error:", error);
+        return res.status(500).json({ message: "No se pudieron cargar las estadísticas" });
+    }
+}
 async function getUsers(_req, res) {
     const users = await userService.getUsers();
     return res.json({ users });
@@ -120,6 +140,11 @@ async function getUserById(req, res) {
         const user = await userService.getUserById(id);
         if (!user) {
             return res.status(404).json({ message: "User not found" });
+        }
+        // Visitas al perfil (estadística Pro): no cuenta cuando uno se mira a sí mismo.
+        const viewerId = req.user?.userId;
+        if (viewerId && viewerId !== id) {
+            void userService.registerProfileView(id).catch((error) => console.error("[GET /users/:id] profile view:", error));
         }
         return res.json({ user });
     }

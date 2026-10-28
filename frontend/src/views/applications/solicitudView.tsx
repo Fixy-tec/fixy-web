@@ -6,8 +6,15 @@ import { Plus, FileText, Send, Loader2 } from "lucide-react";
 import SolicitudCard, { Solicitud } from "@/src/components/cards/solicitudCard";
 import { useAuth } from "@/src/context/AuthContext";
 import { useRequest } from "@/src/context/RequestContext";
+import ServerErrorScreen from "@/src/components/ServerErrorScreen";
 
 type Tab = "mis-solicitudes" | "mis-postulaciones";
+
+// Reintentos silenciosos antes de mostrar la pantalla de "servidor caído".
+// Cubre el cold-start de Render (free) y picos puntuales, sin que la pantalla
+// salte por lentitud normal: mientras carga/reintenta se ve el spinner.
+const MAX_AUTO_RETRIES = 2;
+const RETRY_DELAY_MS = 2500;
 
 export default function ApplicationsView() {
   const router = useRouter();
@@ -22,6 +29,7 @@ export default function ApplicationsView() {
 
   const [tab, setTab] = useState<Tab>("mis-solicitudes");
   const [currentPage, setCurrentPage] = useState(1);
+  const [autoRetries, setAutoRetries] = useState(0);
   const ITEMS_PER_PAGE = 7;
 
   useEffect(() => {
@@ -34,7 +42,33 @@ export default function ApplicationsView() {
     void refreshLists();
   }, [authLoading, isAuthenticated, isLoggingOut, refreshLists, router]);
 
+  // Si la carga falla (server caído/lento o cold-start), reintentamos en
+  // silencio un par de veces antes de mostrar la pantalla de error. El timer
+  // (no un setState síncrono) dispara cada reintento; `serverDown` se deriva.
+  useEffect(() => {
+    if (authLoading || !isAuthenticated || isLoadingLists) return;
+    if (!listsError || autoRetries >= MAX_AUTO_RETRIES) return;
+
+    const timer = setTimeout(() => {
+      setAutoRetries((n) => n + 1);
+      void refreshLists();
+    }, RETRY_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [
+    listsError,
+    isLoadingLists,
+    authLoading,
+    isAuthenticated,
+    autoRetries,
+    refreshLists,
+  ]);
+
   const data = tab === "mis-solicitudes" ? myRequests : myApplications;
+  // La pantalla de error sale solo tras agotar los reintentos con la carga ya
+  // detenida; mientras tanto seguimos "recuperando" (se ve el spinner).
+  const serverDown =
+    Boolean(listsError) && autoRetries >= MAX_AUTO_RETRIES && !isLoadingLists;
+  const isRecovering = Boolean(listsError) && !serverDown;
   const misSolicitudesActivas = myRequests.filter(
     (s) => s.status === "Abierta",
   ).length;
@@ -49,6 +83,11 @@ export default function ApplicationsView() {
     router.push(`/applications/${s.id}`);
   };
 
+  const handleServerRetry = () => {
+    setAutoRetries(0);
+    void refreshLists();
+  };
+
   // Reset a página 1 cuando cambia de tab
   useEffect(() => {
     setCurrentPage(1);
@@ -60,6 +99,10 @@ export default function ApplicationsView() {
         <Loader2 className="w-8 h-8 animate-spin text-[#1a4ca3]" />
       </div>
     );
+  }
+
+  if (serverDown) {
+    return <ServerErrorScreen onRetry={handleServerRetry} />;
   }
 
   return (
@@ -96,7 +139,7 @@ export default function ApplicationsView() {
           </div>
         )}
 
-        {listsError && (
+        {listsError && !isRecovering && (
           <div className="mb-6 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-sm text-red-700">
             {listsError}
           </div>
@@ -153,7 +196,7 @@ export default function ApplicationsView() {
           </button>
         </div>
 
-        {isLoadingLists ? (
+        {isLoadingLists || isRecovering ? (
           <div className="flex justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-[#1a4ca3]" />
           </div>

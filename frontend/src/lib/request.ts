@@ -179,6 +179,8 @@ export interface RequestDto {
   deadline: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Solicitud de un usuario Pro: se muestra destacada y primero en el feed. */
+  isFeatured?: boolean;
   tags: RequestTagDto[];
 }
 
@@ -186,6 +188,8 @@ export interface RequestCreatorDto {
   id: string;
   name: string;
   medal?: string;
+  plan?: string;
+  planExpiresAt?: string | null;
   profile?: { avatarUrl: string | null; avgRating?: number } | null;
 }
 
@@ -452,6 +456,24 @@ export async function extendRequestDeadline(
 
   if (!response.ok) {
     await parseError(response, "Error al aplazar la solicitud");
+  }
+
+  const data = (await response.json()) as RequestDetailResponse;
+  return data.request;
+}
+
+/** POST `/requests/:id/complete` — el creador marca la solicitud como completada. */
+export async function completeRequest(
+  token: string,
+  id: string,
+): Promise<RequestWithRelations> {
+  const response = await fetch(`${API_BASE}/requests/${id}/complete`, {
+    method: "POST",
+    headers: authHeaders(token),
+  });
+
+  if (!response.ok) {
+    await parseError(response, "No se pudo completar la solicitud");
   }
 
   const data = (await response.json()) as RequestDetailResponse;

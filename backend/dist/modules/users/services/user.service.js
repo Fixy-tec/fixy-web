@@ -37,6 +37,8 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsernameTakenError = exports.InvalidTagNamesError = void 0;
+exports.registerProfileView = registerProfileView;
+exports.getProStats = getProStats;
 exports.getUsers = getUsers;
 exports.getUserById = getUserById;
 exports.getUserRank = getUserRank;
@@ -47,11 +49,80 @@ const prisma_1 = __importDefault(require("../../../prisma"));
 const client_1 = require("@prisma/client");
 const userRepository = __importStar(require("../repositories/user.repository"));
 const tagRepository = __importStar(require("../../tags/repositories/tag.repository"));
+const plan_utils_1 = require("../../plans/plan.utils");
 function toPublicUser(user) {
     if (!user)
         return null;
     const { password: _pw, ...rest } = user;
-    return rest;
+    return { ...rest, isPro: (0, plan_utils_1.isProActive)(user) };
+}
+async function registerProfileView(userId) {
+    await prisma_1.default.profile.updateMany({
+        where: { userId },
+        data: { profileViews: { increment: 1 } },
+    });
+}
+/** Estadísticas del plan Pro: visitas, tasa de aceptación y ganancias. */
+async function getProStats(userId) {
+    const user = await prisma_1.default.user.findUnique({
+        where: { id: userId },
+        select: {
+            plan: true,
+            planExpiresAt: true,
+            profile: { select: { profileViews: true } },
+        },
+    });
+    if (!user) {
+        throw new Error("User not found");
+    }
+    if (!(0, plan_utils_1.isProActive)(user)) {
+        throw new plan_utils_1.PlanRequiredError("Las estadísticas son exclusivas del plan Pro");
+    }
+    const [applicationsSent, applicationsAccepted, requestsCreated, requestsCompleted, released, held, recentEarnings,] = await Promise.all([
+        prisma_1.default.application.count({ where: { applicantId: userId } }),
+        prisma_1.default.application.count({ where: { applicantId: userId, status: "ACEPTADA" } }),
+        prisma_1.default.request.count({ where: { creatorId: userId } }),
+        prisma_1.default.request.count({ where: { creatorId: userId, status: "COMPLETADA" } }),
+        prisma_1.default.payment.aggregate({
+            where: { payeeId: userId, status: "RELEASED" },
+            _sum: { payoutCents: true },
+            _count: { _all: true },
+        }),
+        prisma_1.default.payment.aggregate({
+            where: { payeeId: userId, status: "HELD" },
+            _sum: { amountCents: true },
+        }),
+        prisma_1.default.payment.findMany({
+            where: { payeeId: userId, status: "RELEASED" },
+            orderBy: { releasedAt: "desc" },
+            take: 10,
+            select: {
+                id: true,
+                code: true,
+                description: true,
+                payoutCents: true,
+                commissionCents: true,
+                mode: true,
+                releasedAt: true,
+            },
+        }),
+    ]);
+    return {
+        profileViews: user.profile?.profileViews ?? 0,
+        applicationsSent,
+        applicationsAccepted,
+        acceptanceRate: applicationsSent > 0
+            ? Math.round((applicationsAccepted / applicationsSent) * 100)
+            : 0,
+        requestsCreated,
+        requestsCompleted,
+        earnings: {
+            totalCents: released._sum.payoutCents ?? 0,
+            count: released._count._all,
+            heldCents: held._sum.amountCents ?? 0,
+            recent: recentEarnings,
+        },
+    };
 }
 async function getUsers() {
     return userRepository.getUsers();
@@ -147,6 +218,8 @@ async function getUsersRanking(options) {
             points: true,
             medal: true,
             createdAt: true,
+            plan: true,
+            planExpiresAt: true,
             profile: {
                 select: {
                     avatarUrl: true,
@@ -187,6 +260,7 @@ async function getUsersRanking(options) {
         name: u.name,
         points: u.points,
         medal: u.medal,
+        isPro: (0, plan_utils_1.isProActive)(u),
         rank: ranks[i] ?? i + 1,
         completedRequests: completedByUser.get(u.id) ?? 0,
         profile: u.profile

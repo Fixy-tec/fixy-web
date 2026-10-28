@@ -89,11 +89,18 @@ function mapUserToDto(user) {
     };
 }
 async function userHasActiveAcademicProcesses(userId) {
-    const [activeRequests, acceptedApplications] = await Promise.all([
+    const [activeRequests, acceptedApplications, activePayments] = await Promise.all([
         adminRepository.countActiveRequestsByUser(userId),
         adminRepository.countAcceptedApplicationsByUser(userId),
+        // Dinero en garantía o en verificación, como pagador o como ayudante.
+        prisma_1.default.payment.count({
+            where: {
+                status: { in: ["PENDING", "HELD"] },
+                OR: [{ payerId: userId }, { payeeId: userId }],
+            },
+        }),
     ]);
-    return activeRequests > 0 || acceptedApplications > 0;
+    return activeRequests > 0 || acceptedApplications > 0 || activePayments > 0;
 }
 async function listUsers(filters) {
     const { users, total, page, limit } = await adminRepository.getUsers(filters);

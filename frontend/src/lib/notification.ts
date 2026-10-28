@@ -9,7 +9,8 @@ export type NotificationTypeApi =
   | "APPLICATION_REJECTED"
   | "REQUEST_COMPLETED"
   | "NEW_MATCH"
-  | "RANK_UP";
+  | "RANK_UP"
+  | "PAYMENT_UPDATE";
 
 export interface NotificationDto {
   id: string;
@@ -124,6 +125,8 @@ export function getNotificationStyle(type: NotificationTypeApi): {
       return { color: "#f59e0b", emoji: "★" };
     case "RANK_UP":
       return { color: "#7c3aed", emoji: "↑" };
+    case "PAYMENT_UPDATE":
+      return { color: "#057f78", emoji: "S/" };
     case "NEW_MATCH":
     default:
       return { color: "#6b7280", emoji: "•" };

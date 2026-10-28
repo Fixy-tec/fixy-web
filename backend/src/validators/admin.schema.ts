@@ -6,6 +6,8 @@ export const listUsersQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(100).default(20),
   role: z.nativeEnum(Role).optional(),
   search: z.string().trim().optional(),
+  // Por defecto solo activos: un usuario "eliminado" (soft delete) no debe seguir en la lista.
+  status: z.enum(["ACTIVE", "INACTIVE", "ALL"]).default("ACTIVE"),
 });
 
 export const listLogsQuerySchema = z.object({

@@ -65,7 +65,7 @@ export default function Footer() {
             <Link href="/">
               <Image
                 src="/logo.png"
-                alt="Fixy Logo"
+                alt="Helpy Logo"
                 width={148}
                 height={48}
                 className="object-contain h-10 w-auto mb-4"
@@ -119,7 +119,7 @@ export default function Footer() {
         {/* Bottom bar */}
         <div className="mt-10 pt-6 border-t border-gray-100">
           <p className="text-sm text-gray-400">
-            © {new Date().getFullYear()} Fixy. Todos los derechos reservados.
+            © {new Date().getFullYear()} Helpy. Todos los derechos reservados.
           </p>
         </div>
       </div>

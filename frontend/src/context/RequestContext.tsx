@@ -24,6 +24,7 @@ import {
   createRequest,
   deleteRequest,
   extendRequestDeadline,
+  completeRequest,
   fetchRequestById,
   fetchRequests,
   fetchRequestsByCreator,
@@ -95,6 +96,11 @@ interface RequestContextValue {
   isExtending: boolean;
   extendError: string | null;
   extenderDeadline: (id: string, newDeadline: string) => Promise<SolicitudDetailData>;
+  /** El creador marca la solicitud en proceso como completada */
+  isCompleting: boolean;
+  completarSolicitud: (id: string) => Promise<void>;
+  /** Recarga el detalle abierto (p. ej. tras pagar una garantía) */
+  reloadCurrentDetail: () => Promise<void>;
   /** Postular a un request con un mensaje */
   isApplying: boolean;
   applyError: string | null;
@@ -467,6 +473,26 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
     [token, isAuthenticated, refreshLists, user?.id],
   );
 
+  const [isCompleting, setIsCompleting] = useState(false);
+  const completarSolicitud = useCallback(
+    async (id: string) => {
+      if (!token || !isAuthenticated) {
+        throw new Error("Debes iniciar sesión");
+      }
+      setIsCompleting(true);
+      try {
+        await completeRequest(token, id);
+        // El PATCH devuelve el request sin postulantes completos: recargamos.
+        const fresh = await fetchRequestById(id);
+        setCurrentDetail(requestToDetail(fresh, { currentUserId: user?.id }));
+        await refreshLists();
+      } finally {
+        setIsCompleting(false);
+      }
+    },
+    [token, isAuthenticated, refreshLists, user?.id],
+  );
+
   const postular = useCallback(
     async (requestId: string, message: string) => {
       if (!token || !isAuthenticated) {
@@ -609,6 +635,9 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
       isExtending,
       extendError,
       extenderDeadline,
+      isCompleting,
+      completarSolicitud,
+      reloadCurrentDetail,
       isApplying,
       applyError,
       postular,
@@ -657,6 +686,9 @@ export function RequestProvider({ children }: { children: React.ReactNode }) {
       isExtending,
       extendError,
       extenderDeadline,
+      isCompleting,
+      completarSolicitud,
+      reloadCurrentDetail,
       isApplying,
       applyError,
       postular,

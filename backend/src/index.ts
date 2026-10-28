@@ -12,6 +12,7 @@ import recommendationsRoutes from "./modules/recommendations/routes/recommendati
 import PointlogRoutes from "./modules/pointlog/routes/pointlog.routes";
 import notificationsRoutes from "./modules/notifications/routes/notifications.routes";
 import adminRoutes from "./modules/admin/routes/admin.routes";
+import paymentsRoutes from "./modules/payments/routes/payments.routes";
 import { setupRealtime } from "./realtime";
 
 dotenv.config();
@@ -47,6 +48,13 @@ app.use(
 
 app.use(express.json());
 
+// Ninguna respuesta JSON debe incluir el hash de contraseña. Varias consultas
+// devuelven el usuario completo (p. ej. `creator: { include: { profile } }`),
+// así que lo filtramos aquí una sola vez para toda la API.
+app.set("json replacer", (key: string, value: unknown) =>
+  key === "password" ? undefined : value,
+);
+
 app.get("/health", (_req, res) => {
   res.json({ status: "ok" });
 });
@@ -61,6 +69,7 @@ app.use("/api/recommendations", recommendationsRoutes);
 app.use("/api/pointlog", PointlogRoutes);
 app.use("/api/notifications", notificationsRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/payments", paymentsRoutes);
 
 const port = process.env.PORT ? Number(process.env.PORT) : 4000;
 const httpServer = createServer(app);

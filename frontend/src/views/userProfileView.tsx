@@ -1,5 +1,6 @@
 "use client";
 
+import ProBadge from "@/src/components/ProBadge";
 import Image from "next/image";
 import { useEffect, useState } from "react";
 import {
@@ -33,6 +34,7 @@ export interface UserProfile {
   github?: string;
   linkedin?: string;
   portfolio?: string;
+  isPro?: boolean;
 }
 
 interface Props {
@@ -250,8 +252,9 @@ export default function UserProfileView({
                     </p>
                   </div>
                 ) : (
-                  <h1 className="text-2xl font-bold text-gray-800">
+                  <h1 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                     {user.name}
+                    {user.isPro && <ProBadge size="md" />}
                   </h1>
                 )}
                 {isOwner && !editing && (

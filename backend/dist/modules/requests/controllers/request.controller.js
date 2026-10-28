@@ -34,6 +34,7 @@ var __importStar = (this && this.__importStar) || (function () {
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.createRequest = createRequest;
+exports.completeRequest = completeRequest;
 exports.getRequests = getRequests;
 exports.getRequestById = getRequestById;
 exports.updateRequest = updateRequest;
@@ -43,6 +44,7 @@ const requestsService = __importStar(require("../services/requests.service"));
 const client_1 = require("@prisma/client");
 const zod_1 = require("zod");
 const request_schema_1 = require("../../../validators/request.schema");
+const plan_utils_1 = require("../../plans/plan.utils");
 async function createRequest(req, res) {
     try {
         const authReq = req;
@@ -76,10 +78,35 @@ async function createRequest(req, res) {
         if (error instanceof requestsService.InvalidTagIdsError) {
             return res.status(400).json({ message: error.message });
         }
+        if (error instanceof plan_utils_1.PlanLimitError) {
+            return res.status(403).json({ message: error.message, code: error.code });
+        }
         return res.status(400).json({
             message: error.message ||
                 "Failed to create request",
         });
+    }
+}
+/**
+ * POST /requests/:id/complete — el creador marca la solicitud como completada.
+ */
+async function completeRequest(req, res) {
+    try {
+        const authReq = req;
+        const userId = authReq.user?.userId;
+        if (!userId) {
+            return res.status(401).json({ message: "Unauthorized" });
+        }
+        const { id } = req.params;
+        const request = await requestsService.getRequestById(id);
+        if (request.creatorId !== userId) {
+            return res.status(403).json({ message: "Solo el creador puede completar la solicitud" });
+        }
+        const updated = await requestsService.completeRequest(id);
+        return res.json({ request: updated });
+    }
+    catch (error) {
+        return res.status(400).json({ message: error.message || "No se pudo completar la solicitud" });
     }
 }
 async function getRequests(req, res) {
@@ -145,6 +172,9 @@ async function updateRequest(req, res) {
         if (error instanceof requestsService.InvalidTagIdsError) {
             return res.status(400).json({ message: error.message });
         }
+        if (error instanceof requestsService.ActiveEscrowError) {
+            return res.status(409).json({ message: error.message });
+        }
         return res.status(400).json({ message: error.message || "Failed to update request" });
     }
 }
@@ -165,6 +195,9 @@ async function deleteRequest(req, res) {
         return res.json({ message: "Request deleted successfully" });
     }
     catch (error) {
+        if (error instanceof requestsService.ActiveEscrowError) {
+            return res.status(409).json({ message: error.message });
+        }
         return res.status(400).json({ message: error.message || "Failed to delete request" });
     }
 }

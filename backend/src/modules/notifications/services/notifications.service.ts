@@ -162,3 +162,37 @@ export async function notifyRankUp(args: {
     },
   });
 }
+
+export async function notifyRequestCompleted(args: {
+  userId: string;
+  requestTitle: string;
+  requestId: string;
+}) {
+  return safeCreate({
+    userId: args.userId,
+    type: "REQUEST_COMPLETED",
+    title: "Solicitud completada",
+    message: `"${args.requestTitle}" se marcó como completada. Califica a tu compañero para cerrar el ciclo.`,
+    data: { requestId: args.requestId },
+  });
+}
+
+/** Cualquier novedad de un pago (aprobado, retenido, liberado, rechazado…). */
+export async function notifyPaymentUpdate(args: {
+  userId: string;
+  title: string;
+  message: string;
+  paymentId: string;
+  requestId?: string | null;
+}) {
+  return safeCreate({
+    userId: args.userId,
+    type: "PAYMENT_UPDATE",
+    title: args.title,
+    message: args.message,
+    data: {
+      paymentId: args.paymentId,
+      ...(args.requestId ? { requestId: args.requestId } : {}),
+    },
+  });
+}

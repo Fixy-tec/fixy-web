@@ -9,10 +9,12 @@ const PROTECTED_ROUTES = [
   "/users",
   "/home",
   "/admin",
+  "/checkout",
+  "/pagos",
 ];
 
-/** Solo login: si ya hay sesión, redirigir al home */
-const GUEST_ONLY_AUTH_ROUTES = ["/auth/login"];
+/** Login y registro: si ya hay sesión, redirigir al home */
+const GUEST_ONLY_AUTH_ROUTES = ["/auth/login", "/auth/register"];
 
 function normalizeCookieToken(raw: string | undefined): string | null {
   if (!raw) return null;

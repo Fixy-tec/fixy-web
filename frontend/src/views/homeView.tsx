@@ -16,7 +16,7 @@ import Footer from "../components/footerComponent";
 const phrases = ["Mejora Académica", "Próximo Proyecto"];
 const colors = ["#1a4ca3", "#057f78"];
 
-import { getHomeSteps, type HomeStep } from "@/src/lib/homeContent";
+import { HOME_STEPS, type HomeStep } from "@/src/lib/homeContent";
 
 const DEFAULT_STEP_ICONS = [
   <FilePlus2 key="1" size={36} strokeWidth={1.5} />,
@@ -28,6 +28,11 @@ const DEFAULT_STEP_ICONS = [
 type DisplayStep = HomeStep & {
   icon: React.ReactNode;
 };
+
+const steps: DisplayStep[] = HOME_STEPS.map((step, index) => ({
+  ...step,
+  icon: DEFAULT_STEP_ICONS[index % DEFAULT_STEP_ICONS.length],
+}));
 
 function TimelineStep({
   step,
@@ -128,15 +133,6 @@ function TimelineStep({
 export default function HomeView() {
   const [current, setCurrent] = useState(0);
   const [visible, setVisible] = useState(true);
-  const [steps, setSteps] = useState<DisplayStep[]>([]);
-
-  useEffect(() => {
-    const loaded = getHomeSteps().map((s, i) => ({
-      ...s,
-      icon: DEFAULT_STEP_ICONS[i % DEFAULT_STEP_ICONS.length],
-    }));
-    setSteps(loaded);
-  }, []);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -180,7 +176,7 @@ export default function HomeView() {
       <div className="w-full">
         <Image
           src="/banerFixy3.png"
-          alt="Banner Fixy"
+          alt="Banner Helpy"
           width={1920}
           height={1080}
           sizes="100vw"
@@ -312,7 +308,7 @@ export default function HomeView() {
                 (e.currentTarget.style.background = "#057f78")
               }
             >
-              Compartir Fixy
+              Compartir Helpy
             </button>
           </div>
         </div>

@@ -10,6 +10,7 @@ import {
   updateUserRole,
   type AdminRole,
   type AdminUserDto,
+  type AdminUserStatusFilter,
 } from "@/src/lib/admin";
 import { isHttpError } from "@/src/lib/httpError";
 import AdminUsersTable from "@/src/components/admin/AdminUsersTable";
@@ -24,6 +25,8 @@ export default function AdminUsersView() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<AdminRole | "">("");
+  const [statusFilter, setStatusFilter] =
+    useState<AdminUserStatusFilter>("ACTIVE");
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [roleTarget, setRoleTarget] = useState<AdminUserDto | null>(null);
@@ -39,6 +42,7 @@ export default function AdminUsersView() {
         limit: 15,
         search: search.trim() || undefined,
         role: roleFilter || undefined,
+        status: statusFilter,
       });
       setUsers(result.users);
       setTotalPages(result.pagination.totalPages);
@@ -50,7 +54,7 @@ export default function AdminUsersView() {
     } finally {
       setLoading(false);
     }
-  }, [token, page, search, roleFilter, showToast]);
+  }, [token, page, search, roleFilter, statusFilter, showToast]);
 
   useEffect(() => {
     const t = setTimeout(() => void loadUsers(), search ? 300 : 0);
@@ -84,6 +88,9 @@ export default function AdminUsersView() {
     try {
       await deleteUser(token, deleteTarget.id);
       showToast("Usuario desactivado", "success");
+      // Se quita al instante de la lista; la recarga luego sincroniza paginación.
+      const removedId = deleteTarget.id;
+      setUsers((prev) => prev.filter((u) => u.id !== removedId));
       setDeleteTarget(null);
       void loadUsers();
     } catch (e) {
@@ -130,6 +137,18 @@ export default function AdminUsersView() {
             <option value="">Todos los roles</option>
             <option value="USER">USER</option>
             <option value="ADMIN">ADMIN</option>
+          </select>
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setPage(1);
+              setStatusFilter(e.target.value as AdminUserStatusFilter);
+            }}
+            className="py-2.5 px-3 rounded-xl border border-gray-200 text-sm"
+          >
+            <option value="ACTIVE">Activos</option>
+            <option value="INACTIVE">Inactivos</option>
+            <option value="ALL">Todos</option>
           </select>
         </div>
       </div>

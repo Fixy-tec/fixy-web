@@ -15,9 +15,12 @@ exports.getAdminLogs = getAdminLogs;
 const prisma_1 = __importDefault(require("../../../prisma"));
 const admin_constants_1 = require("../constants/admin.constants");
 async function getUsers(filters) {
-    const { page, limit, role, search } = filters;
+    const { page, limit, role, search, status } = filters;
     const skip = (page - 1) * limit;
     const where = {};
+    if (status !== "ALL") {
+        where.isActive = status === "ACTIVE";
+    }
     if (role) {
         where.role = role;
     }

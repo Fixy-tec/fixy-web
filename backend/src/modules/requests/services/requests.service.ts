@@ -3,6 +3,12 @@ import * as tagRepository from "../../tags/repositories/tag.repository";
 import { RequestType, RequestStatus } from "@prisma/client";
 import prisma from "../../../prisma";
 import { notifyAdminDashboardUpdate } from "../../../realtime/admin.realtime";
+import * as notificationsService from "../../notifications/services/notifications.service";
+import {
+  FREE_LIMITS,
+  isProActive,
+  PlanLimitError,
+} from "../../plans/plan.utils";
 
 interface CreateRequestInput {
   creatorId: string;
@@ -81,19 +87,81 @@ export async function createRequest(input: CreateRequestInput) {
     input.participantsNeeded = 1;
   }
 
-  // Validate max 5 requests per user
-  const userRequestCount = await requestsRepository.getUserRequestCount(
-    input.creatorId,
-  );
-  if (userRequestCount >= 5) {
-    throw new Error("Users can have a maximum of 5 active requests");
+  // Plan Free: máximo de solicitudes activas. Pro: ilimitadas y destacadas.
+  const creator = await prisma.user.findUnique({
+    where: { id: input.creatorId },
+    select: { plan: true, planExpiresAt: true },
+  });
+  const isPro = creator ? isProActive(creator) : false;
+  if (!isPro) {
+    const userRequestCount = await requestsRepository.getUserRequestCount(
+      input.creatorId,
+    );
+    if (userRequestCount >= FREE_LIMITS.activeRequests) {
+      throw new PlanLimitError(
+        `El plan Free permite ${FREE_LIMITS.activeRequests} solicitudes activas a la vez. Mejora a Pro para publicar sin límites.`,
+      );
+    }
   }
 
   const tagIds = await resolveTagIds(input.tagIds);
 
-  const created = await requestsRepository.createRequest({ ...input, tagIds });
+  const created = await requestsRepository.createRequest({
+    ...input,
+    tagIds,
+    isFeatured: isPro,
+  });
   void notifyAdminDashboardUpdate();
   return created;
+}
+
+export class ActiveEscrowError extends Error {
+  constructor(action: string) {
+    super(
+      `No puedes ${action} esta solicitud: tiene un pago en garantía o en verificación. Si hay un problema, contacta a un administrador.`,
+    );
+    this.name = "ActiveEscrowError";
+  }
+}
+
+async function hasActiveEscrow(requestId: string): Promise<boolean> {
+  const count = await prisma.payment.count({
+    where: {
+      status: { in: ["PENDING", "HELD"] },
+      application: { requestId },
+    },
+  });
+  return count > 0;
+}
+
+/**
+ * El creador marca como completada una solicitud en proceso. Habilita las
+ * calificaciones mutuas, que a su vez liberan el pago en garantía.
+ */
+export async function completeRequest(id: string) {
+  const request = await requestsRepository.getRequestById(id);
+  if (!request) {
+    throw new Error("Request not found");
+  }
+  if (request.status !== "EN_PROCESO") {
+    throw new Error("Solo puedes completar una solicitud que está en proceso");
+  }
+
+  const updated = await requestsRepository.updateRequest(id, {
+    status: "COMPLETADA",
+  });
+
+  for (const app of request.applications) {
+    if (app.status === "ACEPTADA") {
+      void notificationsService.notifyRequestCompleted({
+        userId: app.applicantId,
+        requestTitle: request.title,
+        requestId: request.id,
+      });
+    }
+  }
+  void notifyAdminDashboardUpdate();
+  return updated;
 }
 
 /**
@@ -227,6 +295,11 @@ export async function updateRequest(id: string, input: UpdateRequestInput) {
     tagIds = await resolveTagIds(input.tagIds);
   }
 
+  // Con dinero en garantía o en verificación, los términos quedan congelados.
+  if (await hasActiveEscrow(id)) {
+    throw new ActiveEscrowError("modificar");
+  }
+
   const previousStatus = request.status;
   const updated = await requestsRepository.updateRequest(id, { ...input, tagIds });
 
@@ -241,6 +314,10 @@ export async function deleteRequest(id: string) {
   const request = await requestsRepository.getRequestById(id);
   if (!request) {
     throw new Error("Request not found");
+  }
+
+  if (await hasActiveEscrow(id)) {
+    throw new ActiveEscrowError("retirar");
   }
 
   return requestsRepository.deleteRequest(id);

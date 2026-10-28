@@ -17,6 +17,7 @@ const recommendations_routes_1 = __importDefault(require("./modules/recommendati
 const pointlog_routes_1 = __importDefault(require("./modules/pointlog/routes/pointlog.routes"));
 const notifications_routes_1 = __importDefault(require("./modules/notifications/routes/notifications.routes"));
 const admin_routes_1 = __importDefault(require("./modules/admin/routes/admin.routes"));
+const payments_routes_1 = __importDefault(require("./modules/payments/routes/payments.routes"));
 const realtime_1 = require("./realtime");
 dotenv_1.default.config();
 const app = (0, express_1.default)();
@@ -43,6 +44,10 @@ app.use((0, cors_1.default)({
     allowedHeaders: ["Content-Type", "Authorization"],
 }));
 app.use(express_1.default.json());
+// Ninguna respuesta JSON debe incluir el hash de contraseña. Varias consultas
+// devuelven el usuario completo (p. ej. `creator: { include: { profile } }`),
+// así que lo filtramos aquí una sola vez para toda la API.
+app.set("json replacer", (key, value) => key === "password" ? undefined : value);
 app.get("/health", (_req, res) => {
     res.json({ status: "ok" });
 });
@@ -56,6 +61,7 @@ app.use("/api/recommendations", recommendations_routes_1.default);
 app.use("/api/pointlog", pointlog_routes_1.default);
 app.use("/api/notifications", notifications_routes_1.default);
 app.use("/api/admin", admin_routes_1.default);
+app.use("/api/payments", payments_routes_1.default);
 const port = process.env.PORT ? Number(process.env.PORT) : 4000;
 const httpServer = (0, http_1.createServer)(app);
 (0, realtime_1.setupRealtime)(httpServer);

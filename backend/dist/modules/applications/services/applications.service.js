@@ -36,6 +36,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.PaymentRequiredError = void 0;
+exports.requiresEscrow = requiresEscrow;
+exports.acceptApplicationInTx = acceptApplicationInTx;
+exports.notifyAcceptance = notifyAcceptance;
 exports.createApplication = createApplication;
 exports.getApplications = getApplications;
 exports.getApplicationById = getApplicationById;
@@ -45,6 +49,78 @@ const applicationsRepository = __importStar(require("../repositories/application
 const notificationsService = __importStar(require("../../notifications/services/notifications.service"));
 const prisma_1 = __importDefault(require("../../../prisma"));
 const admin_realtime_1 = require("../../../realtime/admin.realtime");
+const plan_utils_1 = require("../../plans/plan.utils");
+/** Asesoría con monto: se paga por adelantado y queda en garantía. */
+function requiresEscrow(request) {
+    return request.type === "ASESORIA" && (request.economicBenefit ?? 0) > 0;
+}
+class PaymentRequiredError extends Error {
+    constructor() {
+        super("Esta asesoría tiene un pago: para aceptar al postulante debes pagar primero. El dinero queda en garantía hasta que ambos se califiquen.");
+        this.code = "PAYMENT_REQUIRED";
+        this.name = "PaymentRequiredError";
+    }
+}
+exports.PaymentRequiredError = PaymentRequiredError;
+const acceptedApplicationInclude = {
+    request: { include: { creator: { include: { profile: true } } } },
+    applicant: { include: { profile: true } },
+};
+/**
+ * Acepta una postulación dentro de una transacción ya abierta: valida cupo,
+ * marca la postulación como ACEPTADA y pasa el request a EN_PROCESO cuando
+ * se llena el cupo. La usa tanto el flujo normal como el pago en garantía.
+ */
+async function acceptApplicationInTx(tx, applicationId, message) {
+    const application = await tx.application.findUnique({
+        where: { id: applicationId },
+        select: { id: true, requestId: true, status: true },
+    });
+    if (!application) {
+        throw new Error("Application not found");
+    }
+    if (application.status === "ACEPTADA") {
+        throw new Error("Esta postulación ya fue aceptada");
+    }
+    const request = await tx.request.findUnique({
+        where: { id: application.requestId },
+        select: { participantsNeeded: true, status: true },
+    });
+    if (!request) {
+        throw new Error("Request not found");
+    }
+    if (request.status !== "ABIERTA" && request.status !== "EN_REVISION") {
+        throw new Error("La solicitud ya no acepta postulantes");
+    }
+    const acceptedCount = await tx.application.count({
+        where: { requestId: application.requestId, status: "ACEPTADA" },
+    });
+    if (acceptedCount >= request.participantsNeeded) {
+        throw new Error("This request has reached the maximum number of participants");
+    }
+    const updatedApp = await tx.application.update({
+        where: { id: applicationId },
+        data: { status: "ACEPTADA", message },
+        include: acceptedApplicationInclude,
+    });
+    if (acceptedCount + 1 >= request.participantsNeeded) {
+        await tx.request.update({
+            where: { id: application.requestId },
+            data: { status: "EN_PROCESO" },
+        });
+    }
+    return updatedApp;
+}
+/** Notificaciones posteriores a una aceptación (fuera de la transacción). */
+function notifyAcceptance(app) {
+    void notificationsService.notifyApplicationAccepted({
+        applicantId: app.applicantId,
+        requestTitle: app.request.title,
+        requestId: app.requestId,
+        applicationId: app.id,
+    });
+    void (0, admin_realtime_1.notifyAdminDashboardUpdate)();
+}
 async function createApplication(input) {
     if (!input.requestId || !input.applicantId || !input.message) {
         throw new Error("RequestId, applicantId and message are required");
@@ -76,6 +152,20 @@ async function createApplication(input) {
     const existing = await applicationsRepository.getApplicationByRequestAndApplicant(input.requestId, input.applicantId);
     if (existing) {
         throw new Error("You have already applied to this request");
+    }
+    // Plan Free: máximo de postulaciones en los últimos 7 días.
+    const applicant = await prisma_1.default.user.findUnique({
+        where: { id: input.applicantId },
+        select: { plan: true, planExpiresAt: true },
+    });
+    if (applicant && !(0, plan_utils_1.isProActive)(applicant)) {
+        const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const recent = await prisma_1.default.application.count({
+            where: { applicantId: input.applicantId, createdAt: { gte: weekAgo } },
+        });
+        if (recent >= plan_utils_1.FREE_LIMITS.applicationsPerWeek) {
+            throw new plan_utils_1.PlanLimitError(`El plan Free permite ${plan_utils_1.FREE_LIMITS.applicationsPerWeek} postulaciones por semana. Mejora a Pro para postular sin límites.`);
+        }
     }
     // NOTA: NO bloqueamos por cantidad de postulantes. El cupo
     // (`participantsNeeded`) solo limita cuántos puede ACEPTAR el creador, no
@@ -123,52 +213,24 @@ async function updateApplication(id, input) {
     }
     // Use atomic transaction for acceptance to prevent race conditions
     if (input.status === "ACEPTADA" && application.status !== "ACEPTADA") {
-        const result = await prisma_1.default.$transaction(async (tx) => {
-            // Validate capacity within transaction
-            const request = await tx.request.findUnique({
-                where: { id: application.requestId },
-                select: { participantsNeeded: true, status: true },
-            });
-            if (!request) {
-                throw new Error("Request not found");
-            }
-            const acceptedCount = await tx.application.count({
-                where: {
-                    requestId: application.requestId,
-                    status: "ACEPTADA",
-                },
-            });
-            if (acceptedCount >= request.participantsNeeded) {
-                throw new Error("This request has reached the maximum number of participants");
-            }
-            // Update application
-            const updatedApp = await tx.application.update({
-                where: { id },
-                data: { status: input.status, message: input.message },
-                include: {
-                    request: { include: { creator: { include: { profile: true } } } },
-                    applicant: { include: { profile: true } },
-                },
-            });
-            // Check if we need to update request status after acceptance
-            const newAcceptedCount = acceptedCount + 1;
-            if (newAcceptedCount >= request.participantsNeeded && (request.status === "ABIERTA" || request.status === "EN_REVISION")) {
-                await tx.request.update({
-                    where: { id: application.requestId },
-                    data: { status: "EN_PROCESO" },
-                });
-            }
-            return updatedApp;
-        });
-        // Notif al aplicante: "te aceptaron".
-        void notificationsService.notifyApplicationAccepted({
-            applicantId: result.applicantId,
-            requestTitle: result.request.title,
-            requestId: result.requestId,
-            applicationId: result.id,
-        });
-        void (0, admin_realtime_1.notifyAdminDashboardUpdate)();
+        // Una asesoría pagada solo se acepta a través del pago en garantía
+        // (POST /payments/escrow/...), nunca con un PATCH directo.
+        if (requiresEscrow(application.request)) {
+            throw new PaymentRequiredError();
+        }
+        const result = await prisma_1.default.$transaction((tx) => acceptApplicationInTx(tx, id, input.message));
+        notifyAcceptance(result);
         return result;
+    }
+    // Una postulación ya pagada en garantía no puede rechazarse por esta vía.
+    if (input.status === "RECHAZADA" && application.status === "ACEPTADA") {
+        const held = await prisma_1.default.payment.findFirst({
+            where: { applicationId: id, status: { in: ["PENDING", "HELD"] } },
+            select: { id: true },
+        });
+        if (held) {
+            throw new Error("Esta postulación tiene un pago en garantía; contacta a un administrador");
+        }
     }
     // For other status changes, use regular update
     const result = await applicationsRepository.updateApplication(id, input);
@@ -194,6 +256,13 @@ async function deleteApplication(id) {
     const application = await applicationsRepository.getApplicationById(id);
     if (!application) {
         throw new Error("Application not found");
+    }
+    const activePayment = await prisma_1.default.payment.findFirst({
+        where: { applicationId: id, status: { in: ["PENDING", "HELD"] } },
+        select: { id: true },
+    });
+    if (activePayment) {
+        throw new Error("No puedes retirar esta postulación: tiene un pago en garantía o en verificación");
     }
     return applicationsRepository.deleteApplication(id);
 }

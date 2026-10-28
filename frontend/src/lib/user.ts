@@ -59,6 +59,7 @@ export interface RankingEntryDto {
   points: number;
   /** Medalla en formato Prisma (HIERRO, BRONCE, …). */
   medal: string;
+  isPro?: boolean;
   rank: number;
   completedRequests: number;
   profile: {
@@ -84,6 +85,7 @@ export interface CurrentUserDto {
   updatedAt: string;
   points: number;
   medal: string;
+  isPro?: boolean;
   profile: ProfileDto | null;
   userTags: UserTagDto[];
   stats?: UserStatsDto;
@@ -286,6 +288,7 @@ export function mapUserDtoToProfile(user: CurrentUserDto): UserProfile {
     github: user.profile?.githubUrl?.trim() || undefined,
     linkedin: user.profile?.linkedinUrl?.trim() || undefined,
     portfolio: user.profile?.portfolioUrl?.trim() || undefined,
+    isPro: Boolean(user.isPro),
   };
 }
 
@@ -392,6 +395,7 @@ export interface RankingStudent {
   completadas: number;
   /** Iniciales para fallback cuando no se quiera mostrar imagen. */
   initials: string;
+  isPro: boolean;
 }
 
 function buildInitials(name: string): string {
@@ -414,5 +418,6 @@ export function mapRankingEntry(entry: RankingEntryDto): RankingStudent {
     rating: Number(entry.profile?.avgRating ?? 0),
     completadas: entry.completedRequests,
     initials: buildInitials(entry.name),
+    isPro: Boolean(entry.isPro),
   };
 }

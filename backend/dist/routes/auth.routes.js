@@ -35,8 +35,11 @@ var __importStar = (this && this.__importStar) || (function () {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const auth_middleware_1 = require("../middlewares/auth.middleware");
+const rate_limit_middleware_1 = require("../middlewares/rate-limit.middleware");
 const authController = __importStar(require("../modules/auth/controllers/auth.controller"));
 const router = (0, express_1.Router)();
+router.post("/register", rate_limit_middleware_1.passwordAuthRateLimiter, authController.register);
+router.post("/login", rate_limit_middleware_1.passwordAuthRateLimiter, authController.login);
 router.get("/google", authController.googleLogin);
 router.post("/google/callback", authController.googleCallback);
 router.get("/google/callback", authController.googleCallback);

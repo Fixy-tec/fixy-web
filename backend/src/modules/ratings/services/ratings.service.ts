@@ -2,6 +2,7 @@ import * as ratingsRepository from "../repositories/ratings.repository";
 import * as pointlogRepository from "../../pointlog/repositories/pointlog.repository";
 import * as notificationsService from "../../notifications/services/notifications.service";
 import * as pointsUtils from "../../../utils/points.utils";
+import * as paymentsService from "../../payments/services/payments.service";
 import prisma from "../../../prisma";
 
 interface CreateRatingInput {
@@ -132,7 +133,21 @@ export async function createRating(input: CreateRatingInput) {
     }
   }
 
+  await releaseEscrowSafely(input.applicationId);
   return rating;
+}
+
+/**
+ * Si ya existen ambas calificaciones, libera el pago en garantía. Un fallo
+ * aquí no debe invalidar la calificación ya registrada (el admin puede liberar
+ * a mano), así que solo se loguea.
+ */
+async function releaseEscrowSafely(applicationId: string) {
+  try {
+    await paymentsService.releaseEscrowIfBothRated(applicationId);
+  } catch (error) {
+    console.error(`[ratings] No se pudo liberar la garantía de ${applicationId}:`, error);
+  }
 }
 
 export async function getRating(id: string) {
@@ -276,5 +291,6 @@ export async function createApplicantRating(input: CreateRatingInput) {
     }
   }
 
+  await releaseEscrowSafely(input.applicationId);
   return rating;
 }

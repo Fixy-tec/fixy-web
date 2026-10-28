@@ -33,27 +33,25 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.GoogleAuthError = exports.AccountDisabledError = exports.InstitutionalEmailRejectedError = void 0;
+exports.GoogleOnlyAccountError = exports.InvalidCredentialsError = exports.UsernameTakenError = exports.EmailTakenError = exports.GoogleAuthError = exports.AccountDisabledError = void 0;
 exports.generateTokens = generateTokens;
+exports.registerWithPassword = registerWithPassword;
+exports.loginWithPassword = loginWithPassword;
 exports.getGoogleAuthUrl = getGoogleAuthUrl;
 exports.handleGoogleCallback = handleGoogleCallback;
 exports.validateSession = validateSession;
+const crypto_1 = require("crypto");
 const client_1 = require("@prisma/client");
 const jwt_1 = require("../../../utils/jwt");
+const password_1 = require("../../../utils/password");
 const google_oauth_1 = require("../config/google.oauth");
 const auth_constants_1 = require("../constants/auth.constants");
 const authRepository = __importStar(require("../repositories/auth.repository"));
 const admin_realtime_1 = require("../../../realtime/admin.realtime");
-class InstitutionalEmailRejectedError extends Error {
-    constructor() {
-        super(auth_constants_1.INSTITUTIONAL_REJECTION_MESSAGE);
-        this.name = "InstitutionalEmailRejectedError";
-    }
-}
-exports.InstitutionalEmailRejectedError = InstitutionalEmailRejectedError;
+const plan_utils_1 = require("../../plans/plan.utils");
 class AccountDisabledError extends Error {
     constructor() {
-        super("Account is disabled");
+        super("Tu cuenta está desactivada. Contacta a un administrador.");
         this.name = "AccountDisabledError";
     }
 }
@@ -65,6 +63,34 @@ class GoogleAuthError extends Error {
     }
 }
 exports.GoogleAuthError = GoogleAuthError;
+class EmailTakenError extends Error {
+    constructor() {
+        super("Ya existe una cuenta con ese correo. Inicia sesión.");
+        this.name = "EmailTakenError";
+    }
+}
+exports.EmailTakenError = EmailTakenError;
+class UsernameTakenError extends Error {
+    constructor() {
+        super("Ese nombre de usuario ya está en uso");
+        this.name = "UsernameTakenError";
+    }
+}
+exports.UsernameTakenError = UsernameTakenError;
+class InvalidCredentialsError extends Error {
+    constructor() {
+        super("Correo o contraseña incorrectos");
+        this.name = "InvalidCredentialsError";
+    }
+}
+exports.InvalidCredentialsError = InvalidCredentialsError;
+class GoogleOnlyAccountError extends Error {
+    constructor() {
+        super("Esta cuenta se creó con Google. Usa «Continuar con Google».");
+        this.name = "GoogleOnlyAccountError";
+    }
+}
+exports.GoogleOnlyAccountError = GoogleOnlyAccountError;
 function sanitizeName(name) {
     const trimmed = name.trim();
     if (!trimmed)
@@ -72,6 +98,7 @@ function sanitizeName(name) {
     return trimmed.slice(0, 80);
 }
 function toAuthUserDto(user) {
+    const isPro = (0, plan_utils_1.isProActive)(user);
     return {
         id: user.id,
         name: user.name,
@@ -79,6 +106,9 @@ function toAuthUserDto(user) {
         role: user.role,
         profileCompleted: user.profileCompleted,
         institution: user.institution,
+        plan: (0, plan_utils_1.effectivePlan)(user),
+        isPro,
+        planExpiresAt: isPro ? user.planExpiresAt : null,
     };
 }
 function generateTokens(user) {
@@ -88,6 +118,51 @@ function generateTokens(user) {
         role: user.role,
     });
 }
+function toTokenResult(user) {
+    return { user: toAuthUserDto(user), accessToken: generateTokens(user) };
+}
+// ── Correo + contraseña ────────────────────────────────────────────────────
+async function registerWithPassword(input) {
+    if (await authRepository.findByEmail(input.email)) {
+        throw new EmailTakenError();
+    }
+    if (await authRepository.isUsernameTaken(input.name)) {
+        throw new UsernameTakenError();
+    }
+    const user = await authRepository.createPasswordUser({
+        email: input.email,
+        name: input.name,
+        passwordHash: await (0, password_1.hashPassword)(input.password),
+        institution: (0, auth_constants_1.getInstitutionForEmail)(input.email),
+    });
+    void (0, admin_realtime_1.notifyAdminDashboardUpdate)();
+    return toTokenResult(user);
+}
+// Hash real de una contraseña aleatoria: comparar contra él cuando el correo
+// no existe hace que ambas respuestas tarden lo mismo (no se filtra si existe).
+let dummyHash = null;
+function getDummyHash() {
+    dummyHash ?? (dummyHash = (0, password_1.hashPassword)((0, crypto_1.randomUUID)()));
+    return dummyHash;
+}
+async function loginWithPassword(input) {
+    const user = await authRepository.findByEmail(input.email);
+    if (!user) {
+        await (0, password_1.comparePassword)(input.password, await getDummyHash());
+        throw new InvalidCredentialsError();
+    }
+    if (!user.password) {
+        throw new GoogleOnlyAccountError();
+    }
+    if (!(await (0, password_1.comparePassword)(input.password, user.password))) {
+        throw new InvalidCredentialsError();
+    }
+    if (!user.isActive) {
+        throw new AccountDisabledError();
+    }
+    return toTokenResult(user);
+}
+// ── Google (opcional, se mantiene para las cuentas existentes) ─────────────
 function getGoogleAuthUrl() {
     const client = (0, google_oauth_1.getGoogleOAuthClient)();
     return client.generateAuthUrl({
@@ -121,28 +196,20 @@ async function handleGoogleCallback(code) {
     const email = payload.email.toLowerCase().trim();
     const googleId = payload.sub;
     const name = sanitizeName(payload.name ?? email.split("@")[0]);
-    if (!(0, auth_constants_1.validateInstitutionalEmail)(email)) {
-        throw new InstitutionalEmailRejectedError();
-    }
     const user = await createOrLoginGoogleUser({ googleId, email, name });
-    const accessToken = generateTokens(user);
-    return {
-        user: toAuthUserDto(user),
-        accessToken,
-    };
+    return toTokenResult(user);
 }
 async function createOrLoginGoogleUser(input) {
-    const institution = (0, auth_constants_1.getInstitutionForEmail)(input.email);
     let user = (await authRepository.findByGoogleId(input.googleId)) ??
         (await authRepository.findByEmail(input.email));
     if (user) {
         if (!user.isActive) {
             throw new AccountDisabledError();
         }
+        // Una cuenta creada con contraseña puede vincular Google con el mismo correo.
         if (!user.googleId) {
             user = await authRepository.updateGoogleData(user.id, {
                 googleId: input.googleId,
-                name: input.name,
             });
         }
     }
@@ -151,7 +218,7 @@ async function createOrLoginGoogleUser(input) {
             email: input.email,
             name: input.name,
             googleId: input.googleId,
-            institution,
+            institution: (0, auth_constants_1.getInstitutionForEmail)(input.email),
             role: client_1.Role.USER,
         });
         void (0, admin_realtime_1.notifyAdminDashboardUpdate)();

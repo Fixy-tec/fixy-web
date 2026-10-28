@@ -73,6 +73,7 @@ export function requestToSolicitud(
     beneficio: formatBeneficio(req.economicBenefit),
     status: mapRequestStatus(req.status),
     autor: isOwner ? "Tú" : (options?.autorLabel ?? req.creator?.name ?? "—"),
+    destacada: Boolean(req.isFeatured),
   };
 }
 

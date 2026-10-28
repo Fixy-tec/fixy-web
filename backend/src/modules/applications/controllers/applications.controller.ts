@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import * as applicationsService from "../services/applications.service";
 import { AuthRequest } from "../../../middlewares/auth.middleware";
 import { ApplicationStatus } from "@prisma/client";
+import { PlanLimitError } from "../../plans/plan.utils";
 
 export async function createApplication(req: Request, res: Response) {
   try {
@@ -25,6 +26,9 @@ export async function createApplication(req: Request, res: Response) {
 
     return res.status(201).json(result);
   } catch (error: any) {
+    if (error instanceof PlanLimitError) {
+      return res.status(403).json({ message: error.message, code: error.code });
+    }
     return res.status(400).json({ message: error.message || "Failed to create application" });
   }
 }
@@ -87,6 +91,9 @@ export async function updateApplication(req: Request, res: Response) {
     
     return res.json(result);
   } catch (error: any) {
+    if (error instanceof applicationsService.PaymentRequiredError) {
+      return res.status(402).json({ message: error.message, code: error.code });
+    }
     // Handle specific error for capacity
     if (error.message.includes("reached the maximum number of participants")) {
       return res.status(409).json({ message: error.message });

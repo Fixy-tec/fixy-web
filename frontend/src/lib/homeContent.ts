@@ -1,6 +1,3 @@
-const PUBLICATION_KEY = "fixy_home_publication";
-const STEPS_KEY = "fixy_home_steps";
-
 export interface HomePublication {
   image: string;
   title: string;
@@ -22,14 +19,10 @@ export interface HomeStep {
   extraImages?: string[];
 }
 
-export interface HomeContent {
-  publication: HomePublication;
-  steps: HomeStep[];
-}
-
-const DEFAULT_PUBLICATION: HomePublication = {
+/** Contenido fijo de la página de inicio, compartido por todos los visitantes. */
+export const HOME_PUBLICATION: HomePublication = {
   image: "/fixoNews.png",
-  title: "El servidor de Minecraft de Fixy está en camino",
+  title: "El servidor de Minecraft de Helpy está en camino",
   description:
     "Estamos preparando un espacio para reuniones, eventos, actividades y colaboración entre estudiantes dentro de Minecraft.",
   buttonLabel: "Próximamente",
@@ -38,7 +31,7 @@ const DEFAULT_PUBLICATION: HomePublication = {
   badge: "Noticias",
 };
 
-const DEFAULT_STEPS: HomeStep[] = [
+export const HOME_STEPS: HomeStep[] = [
   {
     id: "1",
     title: "Publica tu solicitud",
@@ -76,54 +69,3 @@ const DEFAULT_STEPS: HomeStep[] = [
     number: "04",
   },
 ];
-
-function readJson<T>(key: string, fallback: T): T {
-  if (typeof window === "undefined") return fallback;
-  try {
-    const raw = localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function writeJson<T>(key: string, value: T): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(key, JSON.stringify(value));
-}
-
-export function getHomePublication(): HomePublication {
-  return readJson(PUBLICATION_KEY, DEFAULT_PUBLICATION);
-}
-
-export function saveHomePublication(publication: HomePublication): void {
-  writeJson(PUBLICATION_KEY, publication);
-}
-
-export function getHomeSteps(): HomeStep[] {
-  return readJson(STEPS_KEY, DEFAULT_STEPS);
-}
-
-export function saveHomeSteps(steps: HomeStep[]): void {
-  writeJson(STEPS_KEY, steps);
-}
-
-export function updateHomeContent(content: Partial<HomeContent>): HomeContent {
-  const publication = content.publication
-    ? { ...getHomePublication(), ...content.publication }
-    : getHomePublication();
-  const steps = content.steps ? content.steps : getHomeSteps();
-
-  saveHomePublication(publication);
-  saveHomeSteps(steps);
-
-  return { publication, steps };
-}
-
-export function getDefaultHomeContent(): HomeContent {
-  return {
-    publication: DEFAULT_PUBLICATION,
-    steps: DEFAULT_STEPS,
-  };
-}

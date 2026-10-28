@@ -8,6 +8,8 @@ exports.findByEmail = findByEmail;
 exports.findByGoogleId = findByGoogleId;
 exports.findById = findById;
 exports.createGoogleUser = createGoogleUser;
+exports.createPasswordUser = createPasswordUser;
+exports.isUsernameTaken = isUsernameTaken;
 exports.updateGoogleData = updateGoogleData;
 exports.markProfileCompleted = markProfileCompleted;
 const prisma_1 = __importDefault(require("../../../prisma"));
@@ -45,11 +47,32 @@ async function createGoogleUser(data) {
             name: data.name,
             googleId: data.googleId,
             role: data.role ?? client_1.Role.USER,
-            institution: data.institution ?? "TECSUP",
+            institution: data.institution ?? null,
             profileCompleted: false,
         },
         include: userInclude,
     });
+}
+async function createPasswordUser(data) {
+    return prisma_1.default.user.create({
+        data: {
+            email: data.email.toLowerCase().trim(),
+            name: data.name,
+            password: data.passwordHash,
+            role: client_1.Role.USER,
+            institution: data.institution,
+            profileCompleted: false,
+        },
+        include: userInclude,
+    });
+}
+/** El nombre de usuario no es @unique en BD, pero se mantiene único en la app. */
+async function isUsernameTaken(name) {
+    const found = await prisma_1.default.user.findFirst({
+        where: { name: { equals: name, mode: "insensitive" } },
+        select: { id: true },
+    });
+    return found !== null;
 }
 async function updateGoogleData(userId, data) {
     return prisma_1.default.user.update({

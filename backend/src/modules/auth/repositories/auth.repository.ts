@@ -5,8 +5,15 @@ export interface CreateGoogleUserInput {
   email: string;
   name: string;
   googleId: string;
-  institution?: string;
+  institution?: string | null;
   role?: Role;
+}
+
+export interface CreatePasswordUserInput {
+  email: string;
+  name: string;
+  passwordHash: string;
+  institution: string | null;
 }
 
 const userInclude = {
@@ -48,11 +55,34 @@ export async function createGoogleUser(data: CreateGoogleUserInput) {
       name: data.name,
       googleId: data.googleId,
       role: data.role ?? Role.USER,
-      institution: data.institution ?? "TECSUP",
+      institution: data.institution ?? null,
       profileCompleted: false,
     },
     include: userInclude,
   });
+}
+
+export async function createPasswordUser(data: CreatePasswordUserInput) {
+  return prisma.user.create({
+    data: {
+      email: data.email.toLowerCase().trim(),
+      name: data.name,
+      password: data.passwordHash,
+      role: Role.USER,
+      institution: data.institution,
+      profileCompleted: false,
+    },
+    include: userInclude,
+  });
+}
+
+/** El nombre de usuario no es @unique en BD, pero se mantiene único en la app. */
+export async function isUsernameTaken(name: string): Promise<boolean> {
+  const found = await prisma.user.findFirst({
+    where: { name: { equals: name, mode: "insensitive" } },
+    select: { id: true },
+  });
+  return found !== null;
 }
 
 export async function updateGoogleData(

@@ -36,6 +36,8 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const adminController = __importStar(require("../controllers/admin.controller"));
 const admin_middleware_1 = require("../../../middlewares/admin.middleware");
+const paymentsController = __importStar(require("../../payments/controllers/payments.controller"));
+const kpisController = __importStar(require("../../kpis/controllers/kpis.controller"));
 const router = (0, express_1.Router)();
 router.use(admin_middleware_1.adminMiddleware);
 router.get("/dashboard", adminController.getDashboard);
@@ -43,4 +45,13 @@ router.get("/logs", adminController.listLogs);
 router.get("/users", adminController.listUsers);
 router.patch("/users/:id/role", adminController.updateUserRole);
 router.delete("/users/:id", adminController.deleteUser);
+// Pagos
+router.get("/payments", paymentsController.adminList);
+router.get("/payments/summary", paymentsController.adminSummary);
+router.get("/payments/settings", paymentsController.adminGetSettings);
+router.put("/payments/settings", paymentsController.adminUpdateSettings);
+router.post("/payments/:id/release", paymentsController.adminRelease);
+router.post("/payments/:id/refund", paymentsController.adminRefund);
+// Indicadores (KPIs)
+router.get("/kpis/roi", kpisController.getRoi);
 exports.default = router;

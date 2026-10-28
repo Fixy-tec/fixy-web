@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -683,7 +684,9 @@ export default function CreateSolicitudView({
                 ) : (
                   <p className="text-xs text-gray-400 mt-1">
                     Si lo dejas vacío se mostrará como "Voluntario / Sin
-                    remuneración".
+                    remuneración". En asesorías con monto, pagas al aceptar
+                    al ayudante y el dinero queda en garantía hasta que ambos
+                    se califiquen.
                   </p>
                 )}
               </div>
@@ -691,6 +694,14 @@ export default function CreateSolicitudView({
               {submitError && (
                 <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3">
                   <p className="text-xs text-red-700">{submitError}</p>
+                  {/plan Free/i.test(submitError) && (
+                    <Link
+                      href="/planes"
+                      className="inline-block mt-2 text-xs font-semibold text-[#1a4ca3] hover:underline"
+                    >
+                      Ver planes →
+                    </Link>
+                  )}
                 </div>
               )}
 
