@@ -47,13 +47,16 @@ export default function CardPaymentForm({
   const numberError = useMemo(() => {
     if (digits.length < 13) return null;
     if (!brand) return "Solo Visa, Mastercard, Amex o Diners";
-    if (digits.length >= maxDigits && !luhnValid(digits)) return "Número inválido";
+    if (digits.length >= maxDigits && !luhnValid(digits))
+      return "Número inválido";
     return null;
   }, [digits, brand, maxDigits]);
 
   const handleExpiry = (value: string) => {
     const clean = value.replace(/\D/g, "").slice(0, 4);
-    setExpiry(clean.length > 2 ? `${clean.slice(0, 2)}/${clean.slice(2)}` : clean);
+    setExpiry(
+      clean.length > 2 ? `${clean.slice(0, 2)}/${clean.slice(2)}` : clean,
+    );
   };
 
   const validate = (): CardPayload | string => {
@@ -67,9 +70,17 @@ export default function CardPaymentForm({
     if (!mm || !yy || yy.length !== 2 || month < 1 || month > 12) {
       return "Fecha de vencimiento inválida (MM/AA)";
     }
-    if (new Date(year, month, 1).getTime() <= Date.now()) return "La tarjeta está vencida";
-    if (cvv.length !== cvvLength) return `El CVV debe tener ${cvvLength} dígitos`;
-    return { number: digits, holder: holder.trim(), expMonth: month, expYear: year, cvv };
+    if (new Date(year, month, 1).getTime() <= Date.now())
+      return "La tarjeta está vencida";
+    if (cvv.length !== cvvLength)
+      return `El CVV debe tener ${cvvLength} dígitos`;
+    return {
+      number: digits,
+      holder: holder.trim(),
+      expMonth: month,
+      expYear: year,
+      cvv,
+    };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -85,7 +96,9 @@ export default function CardPaymentForm({
     try {
       await onSubmit(result);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo procesar el pago");
+      setError(
+        err instanceof Error ? err.message : "No se pudo procesar el pago",
+      );
     } finally {
       setProcessing(false);
     }
@@ -112,10 +125,16 @@ export default function CardPaymentForm({
         <div className="relative flex items-start justify-between">
           <div className="w-10 h-7 rounded-md bg-gradient-to-br from-amber-200 to-amber-400" />
           <span className="text-sm font-bold tracking-wide">
-            {brand ? BRAND_LABEL[brand] : <CreditCard className="w-6 h-6 opacity-80" />}
+            {brand ? (
+              BRAND_LABEL[brand]
+            ) : (
+              <CreditCard className="w-6 h-6 opacity-80" />
+            )}
           </span>
         </div>
-        <p className="relative mt-6 font-mono text-lg tracking-widest">{previewNumber}</p>
+        <p className="relative mt-6 font-mono text-lg tracking-widest">
+          {previewNumber}
+        </p>
         <div className="relative mt-4 flex items-end justify-between text-xs uppercase">
           <div className="min-w-0">
             <p className="text-white/60 text-[10px]">Titular</p>
@@ -139,13 +158,17 @@ export default function CardPaymentForm({
           autoComplete="cc-number"
           placeholder="1234 5678 9012 3456"
           value={formatCardNumber(digits)}
-          onChange={(e) => setDigits(e.target.value.replace(/\D/g, "").slice(0, maxDigits))}
+          onChange={(e) =>
+            setDigits(e.target.value.replace(/\D/g, "").slice(0, maxDigits))
+          }
           disabled={processing}
           className={`w-full px-4 py-2.5 rounded-xl border text-sm font-mono tracking-wide focus:outline-none focus:ring-2 focus:ring-[#1a4ca3]/30 ${
             numberError ? "border-rose-300" : "border-gray-200"
           }`}
         />
-        {numberError && <p className="text-xs text-rose-600 mt-1">{numberError}</p>}
+        {numberError && (
+          <p className="text-xs text-rose-600 mt-1">{numberError}</p>
+        )}
       </div>
 
       <div>
@@ -178,14 +201,18 @@ export default function CardPaymentForm({
           />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-gray-600 mb-1.5">CVV</label>
+          <label className="block text-xs font-semibold text-gray-600 mb-1.5">
+            CVV
+          </label>
           <input
             inputMode="numeric"
             autoComplete="cc-csc"
             placeholder={brand === "AMEX" ? "1234" : "123"}
             type="password"
             value={cvv}
-            onChange={(e) => setCvv(e.target.value.replace(/\D/g, "").slice(0, cvvLength))}
+            onChange={(e) =>
+              setCvv(e.target.value.replace(/\D/g, "").slice(0, cvvLength))
+            }
             disabled={processing}
             className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#1a4ca3]/30"
           />
@@ -217,11 +244,11 @@ export default function CardPaymentForm({
       </button>
 
       {/* La pasarela no cobra dinero real: la etiqueta queda siempre visible */}
-      <div className="flex justify-center">
+      {/* <div className="flex justify-center">
         <DemoBadge />
-      </div>
+      </div> */}
 
-      <details className="group rounded-xl border border-gray-100 px-3 py-2">
+      {/* <details className="group rounded-xl border border-gray-100 px-3 py-2">
         <summary className="cursor-pointer list-none text-xs font-medium text-gray-500 hover:text-gray-700">
           Tarjetas de demostración
         </summary>
@@ -239,7 +266,7 @@ export default function CardPaymentForm({
             </button>
           ))}
         </div>
-      </details>
+      </details> */}
     </form>
   );
 }

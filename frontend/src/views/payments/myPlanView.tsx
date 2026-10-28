@@ -52,7 +52,11 @@ function StatTile({
 function ProStats({ stats }: { stats: ProStatsDto }) {
   return (
     <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      <StatTile icon={Eye} label="Visitas a tu perfil" value={String(stats.profileViews)} />
+      <StatTile
+        icon={Eye}
+        label="Visitas a tu perfil"
+        value={String(stats.profileViews)}
+      />
       <StatTile
         icon={Target}
         label="Tasa de aceptación"
@@ -78,7 +82,10 @@ function ProStats({ stats }: { stats: ProStatsDto }) {
 function LockedStats() {
   return (
     <div className="relative rounded-2xl border border-gray-100 bg-white overflow-hidden">
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-4 blur-sm select-none" aria-hidden>
+      <div
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-4 blur-sm select-none"
+        aria-hidden
+      >
         {["128", "76%", "S/ 240.00", "S/ 30.00"].map((v) => (
           <div key={v} className="rounded-xl bg-gray-50 p-4">
             <p className="text-2xl font-bold text-gray-300">{v}</p>
@@ -88,7 +95,9 @@ function LockedStats() {
       </div>
       <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/60 text-center px-4">
         <Lock className="w-5 h-5 text-gray-500 mb-2" />
-        <p className="font-semibold text-gray-800">Estadísticas exclusivas de Pro</p>
+        <p className="font-semibold text-gray-800">
+          Estadísticas exclusivas de Pro
+        </p>
         <p className="text-xs text-gray-500 mb-3">
           Visitas a tu perfil, tasa de aceptación y tus ganancias.
         </p>
@@ -115,11 +124,15 @@ export default function MyPlanView() {
       .then((d) => {
         setData(d);
         if (d.plan.isPro) {
-          fetchProStats(token).then(setStats).catch(() => setStats(null));
+          fetchProStats(token)
+            .then(setStats)
+            .catch(() => setStats(null));
         }
       })
       .catch((e: unknown) =>
-        setError(e instanceof Error ? e.message : "No se pudieron cargar tus pagos"),
+        setError(
+          e instanceof Error ? e.message : "No se pudieron cargar tus pagos",
+        ),
       );
   }, [token]);
 
@@ -167,7 +180,8 @@ export default function MyPlanView() {
               <p className="text-sm text-gray-500">Plan actual</p>
               <p className="text-xl font-bold text-gray-800">Free</p>
               <p className="text-sm text-gray-500">
-                Publica y postula sin límites, destaca tus solicitudes y cobra sin comisión con Pro.
+                Publica y postula sin límites, destaca tus solicitudes y cobra
+                sin comisión con Pro.
               </p>
             </div>
             <Link
@@ -210,7 +224,8 @@ export default function MyPlanView() {
           ) : (
             <div className="bg-white rounded-2xl border border-gray-100 divide-y divide-gray-50 overflow-hidden">
               {payments.map((p) => {
-                const incoming = p.payee?.id === user?.id && p.payer.id !== user?.id;
+                const incoming =
+                  p.payee?.id === user?.id && p.payer.id !== user?.id;
                 return (
                   <Link
                     key={p.id}
@@ -219,7 +234,9 @@ export default function MyPlanView() {
                   >
                     <div
                       className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${
-                        incoming ? "bg-emerald-50 text-emerald-600" : "bg-[#eff4ff] text-[#1a4ca3]"
+                        incoming
+                          ? "bg-emerald-50 text-emerald-600"
+                          : "bg-[#eff4ff] text-[#1a4ca3]"
                       }`}
                     >
                       {incoming ? (
@@ -234,13 +251,19 @@ export default function MyPlanView() {
                       </p>
                       <p className="text-xs text-gray-400 flex items-center gap-1.5 flex-wrap">
                         {formatDateTime(p.createdAt)} · {paymentMethodLabel(p)}
-                        {p.mode === "TEST" && <DemoBadge detail={false} />}
+                        {/* {p.mode === "TEST" && <DemoBadge detail={false} />} */}
                       </p>
                     </div>
                     <div className="text-right shrink-0">
-                      <p className={`text-sm font-bold ${incoming ? "text-emerald-600" : "text-gray-800"}`}>
+                      <p
+                        className={`text-sm font-bold ${incoming ? "text-emerald-600" : "text-gray-800"}`}
+                      >
                         {incoming ? "+" : ""}
-                        {formatPen(incoming && p.payoutCents != null ? p.payoutCents : p.amountCents)}
+                        {formatPen(
+                          incoming && p.payoutCents != null
+                            ? p.payoutCents
+                            : p.amountCents,
+                        )}
                       </p>
                       <span
                         className={`inline-block mt-0.5 text-[10px] px-2 py-0.5 rounded-full border font-semibold ${PAYMENT_STATUS_STYLE[p.status]}`}

@@ -24,7 +24,13 @@ import {
   type PaymentDto,
 } from "@/src/lib/payment";
 
-function StatusHero({ payment, isNew }: { payment: PaymentDto; isNew: boolean }) {
+function StatusHero({
+  payment,
+  isNew,
+}: {
+  payment: PaymentDto;
+  isNew: boolean;
+}) {
   if (payment.status === "PENDING") {
     return (
       <div className="text-center">
@@ -51,7 +57,9 @@ function StatusHero({ payment, isNew }: { payment: PaymentDto; isNew: boolean })
     return (
       <div className="text-center">
         <ShieldCheck className="w-12 h-12 text-[#1a4ca3] mx-auto mb-3" />
-        <h1 className="text-xl font-bold text-gray-800">Pago retenido en garantía</h1>
+        <h1 className="text-xl font-bold text-gray-800">
+          Pago retenido en garantía
+        </h1>
         <p className="text-sm text-gray-500 mt-1">
           Se libera al ayudante cuando ambos se califiquen.
         </p>
@@ -140,16 +148,23 @@ function ReceiptContent() {
         </div>
 
         <div className="bg-white rounded-3xl border border-gray-100 shadow-sm p-7">
-          <StatusHero payment={payment} isNew={searchParams.get("nuevo") === "1"} />
+          <StatusHero
+            payment={payment}
+            isNew={searchParams.get("nuevo") === "1"}
+          />
 
           {payment.mode === "TEST" && (
             <div className="mt-4 flex justify-center">
-              <DemoBadge />
+              {/* <DemoBadge /> */}
+              <div> </div>
             </div>
           )}
 
           <div className="mt-6 border-t border-dashed border-gray-200 pt-4 divide-y divide-gray-50">
-            <Row label="Código" value={<span className="font-mono">{payment.code}</span>} />
+            <Row
+              label="Código"
+              value={<span className="font-mono">{payment.code}</span>}
+            />
             <Row label="Fecha" value={formatDateTime(payment.createdAt)} />
             <Row
               label="Concepto"
@@ -168,7 +183,9 @@ function ReceiptContent() {
             />
             <Row label="Método" value={paymentMethodLabel(payment)} />
             {isEscrow && <Row label="Pagó" value={payment.payer.name} />}
-            {isEscrow && payment.payee && <Row label="Ayudante" value={payment.payee.name} />}
+            {isEscrow && payment.payee && (
+              <Row label="Ayudante" value={payment.payee.name} />
+            )}
             <Row
               label="Estado"
               value={
@@ -193,7 +210,9 @@ function ReceiptContent() {
                   <span>− {formatPen(payment.commissionCents)}</span>
                 </div>
                 <div className="flex justify-between font-semibold text-[#057f78]">
-                  <span>{viewerIsPayee ? "Recibiste" : "Recibió el ayudante"}</span>
+                  <span>
+                    {viewerIsPayee ? "Recibiste" : "Recibió el ayudante"}
+                  </span>
                   <span>{formatPen(payment.payoutCents)}</span>
                 </div>
               </>

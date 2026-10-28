@@ -1,7 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Loader2, RefreshCw, Target, TrendingDown, TrendingUp } from "lucide-react";
+import {
+  Loader2,
+  RefreshCw,
+  Target,
+  TrendingDown,
+  TrendingUp,
+} from "lucide-react";
 import { useAuth } from "@/src/context/AuthContext";
 import { useAdmin } from "@/src/context/AdminContext";
 import { useToast } from "@/src/context/ToastContext";
@@ -10,7 +16,15 @@ import DemoBadge from "@/src/components/payments/DemoBadge";
 import { getRoiReport, type RoiReportDto } from "@/src/lib/admin";
 import { formatPen } from "@/src/lib/payment";
 
-function StatTile({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function StatTile({
+  label,
+  value,
+  hint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+}) {
   return (
     <div className="bg-white rounded-2xl border border-gray-100 p-4">
       <p className="text-xs text-gray-500">{label}</p>
@@ -34,7 +48,9 @@ function RoiHero({ report }: { report: RoiReportDto }) {
   return (
     <div className="bg-white rounded-3xl border border-gray-100 p-6 h-full">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <p className="text-sm font-semibold text-gray-500">ROI · retorno sobre la inversión</p>
+        <p className="text-sm font-semibold text-gray-500">
+          ROI · retorno sobre la inversión
+        </p>
         <span
           className={`inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full border ${
             positive
@@ -47,12 +63,15 @@ function RoiHero({ report }: { report: RoiReportDto }) {
         </span>
       </div>
 
-      <p className="text-5xl sm:text-6xl font-bold text-gray-900 my-3">{formatRoiPct(report.roi)}</p>
+      <p className="text-5xl sm:text-6xl font-bold text-gray-900 my-3">
+        {formatRoiPct(report.roi)}
+      </p>
 
       <div className="rounded-2xl bg-gray-50 px-4 py-3 text-sm">
         <p className="text-xs text-gray-400 mb-1">{report.formula}</p>
         <p className="font-mono text-gray-700 break-words">
-          ({formatPen(report.revenueCents)} − {formatPen(report.investmentCents)}) ÷{" "}
+          ({formatPen(report.revenueCents)} −{" "}
+          {formatPen(report.investmentCents)}) ÷{" "}
           {formatPen(report.investmentCents)} = {formatRoiPct(report.roi)}
         </p>
       </div>
@@ -60,15 +79,22 @@ function RoiHero({ report }: { report: RoiReportDto }) {
       <p className="text-sm text-gray-600 mt-3 leading-relaxed">
         {positive ? (
           <>
-            Ya recuperaste los {formatPen(report.investmentCents)} invertidos y ganaste{" "}
-            <span className="font-semibold">{formatPen(report.profitCents)}</span> extra.
+            Ya recuperaste los {formatPen(report.investmentCents)} invertidos y
+            ganaste{" "}
+            <span className="font-semibold">
+              {formatPen(report.profitCents)}
+            </span>{" "}
+            extra.
           </>
         ) : (
           <>
-            Un ROI de <span className="font-semibold">{formatRoiPct(report.roi)}</span> significa
-            que todavía falta recuperar el{" "}
-            <span className="font-semibold">{Math.abs(report.roi * 100).toFixed(1)}%</span> de lo
-            invertido. Por cada S/ 1.00 invertido, la app generó{" "}
+            Un ROI de{" "}
+            <span className="font-semibold">{formatRoiPct(report.roi)}</span>{" "}
+            significa que todavía falta recuperar el{" "}
+            <span className="font-semibold">
+              {Math.abs(report.roi * 100).toFixed(1)}%
+            </span>{" "}
+            de lo invertido. Por cada S/ 1.00 invertido, la app generó{" "}
             <span className="font-semibold">S/ {perSol.toFixed(2)}</span>.
           </>
         )}
@@ -85,10 +111,15 @@ function RecoveryCard({ report }: { report: RoiReportDto }) {
 
   return (
     <div className="bg-white rounded-3xl border border-gray-100 p-6 h-full flex flex-col">
-      <p className="text-sm font-semibold text-gray-500">¿Cuánto falta para recuperar la inversión?</p>
+      <p className="text-sm font-semibold text-gray-500">
+        ¿Cuánto falta para recuperar la inversión?
+      </p>
       <p className="text-2xl font-bold text-gray-900 mt-3">
         {formatPen(Math.min(report.revenueCents, report.investmentCents))}
-        <span className="text-base font-medium text-gray-400"> de {formatPen(report.investmentCents)}</span>
+        <span className="text-base font-medium text-gray-400">
+          {" "}
+          de {formatPen(report.investmentCents)}
+        </span>
       </p>
 
       {/* Medidor: mismo verde, pista más clara */}
@@ -100,22 +131,37 @@ function RecoveryCard({ report }: { report: RoiReportDto }) {
         aria-valuenow={Math.round(pct * 100)}
         aria-label="Inversión recuperada"
       >
-        <div className="h-full rounded-full bg-[#057f78]" style={{ width: `${pct * 100}%` }} />
+        <div
+          className="h-full rounded-full bg-[#057f78]"
+          style={{ width: `${pct * 100}%` }}
+        />
       </div>
-      <p className="text-xs text-gray-500 mt-1.5">{(report.recovered * 100).toFixed(1)}% recuperado</p>
+      <p className="text-xs text-gray-500 mt-1.5">
+        {(report.recovered * 100).toFixed(1)}% recuperado
+      </p>
 
       <div className="mt-auto pt-4 text-sm text-gray-600 leading-relaxed">
         {done ? (
           <p>
-            <span className="font-semibold text-gray-800">¡Inversión recuperada!</span> Cada venta
-            nueva ya es ganancia.
+            <span className="font-semibold text-gray-800">
+              ¡Inversión recuperada!
+            </span>{" "}
+            Cada venta nueva ya es ganancia.
           </p>
         ) : (
           <p>
-            Faltan <span className="font-semibold text-gray-800">{formatPen(report.remainingCents)}</span>:
-            unos <span className="font-semibold text-gray-800">{report.salesToBreakEven.yearlyPlans} planes anuales</span>{" "}
+            Faltan{" "}
+            <span className="font-semibold text-gray-800">
+              {formatPen(report.remainingCents)}
+            </span>
+            : unos{" "}
+            <span className="font-semibold text-gray-800">
+              {report.salesToBreakEven.yearlyPlans} planes anuales
+            </span>{" "}
             ({formatPen(report.prices.proYearlyCents)} c/u) o{" "}
-            <span className="font-semibold text-gray-800">{report.salesToBreakEven.monthlyPlans} mensuales</span>{" "}
+            <span className="font-semibold text-gray-800">
+              {report.salesToBreakEven.monthlyPlans} mensuales
+            </span>{" "}
             ({formatPen(report.prices.proMonthlyCents)} c/u).
           </p>
         )}
@@ -136,7 +182,12 @@ export default function AdminKpisView() {
     getRoiReport(token)
       .then(setReport)
       .catch((e: unknown) =>
-        showToast(e instanceof Error ? e.message : "No se pudieron cargar los indicadores", "error"),
+        showToast(
+          e instanceof Error
+            ? e.message
+            : "No se pudieron cargar los indicadores",
+          "error",
+        ),
       );
   }, [token, showToast]);
 
@@ -151,7 +202,12 @@ export default function AdminKpisView() {
         if (!cancelled) setReport(r);
       })
       .catch((e: unknown) =>
-        showToast(e instanceof Error ? e.message : "No se pudieron cargar los indicadores", "error"),
+        showToast(
+          e instanceof Error
+            ? e.message
+            : "No se pudieron cargar los indicadores",
+          "error",
+        ),
       );
     return () => {
       cancelled = true;
@@ -172,10 +228,10 @@ export default function AdminKpisView() {
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <h2 className="text-2xl font-bold text-gray-800">Indicadores</h2>
-            <DemoBadge detail={false} />
+            {/* <DemoBadge detail={false} /> */}
           </div>
           <p className="text-sm text-gray-500 mt-1">
-            ROI simulado con la inversión del proyecto y las ventas hechas en la app.
+            ROI con las ventas hechas en la app.
           </p>
         </div>
         <button
@@ -199,8 +255,16 @@ export default function AdminKpisView() {
           value={formatPen(report.revenueCents)}
           hint={`Planes ${formatPen(report.revenue.plansCents)} · comisiones ${formatPen(report.revenue.commissionsCents)}`}
         />
-        <StatTile label="Inversión del proyecto" value={formatPen(report.investmentCents)} hint="Monto fijo" />
-        <StatTile label="Utilidad" value={signedPen(report.profitCents)} hint="Ingresos − inversión" />
+        <StatTile
+          label="Inversión del proyecto"
+          value={formatPen(report.investmentCents)}
+          hint="Monto fijo"
+        />
+        <StatTile
+          label="Utilidad"
+          value={signedPen(report.profitCents)}
+          hint="Ingresos − inversión"
+        />
         <StatTile
           label="Planes Pro vendidos"
           value={String(report.plansSold)}
@@ -211,11 +275,14 @@ export default function AdminKpisView() {
       <div className="bg-white rounded-2xl border border-gray-100 p-5">
         <div className="flex items-center gap-2 mb-1">
           <Target className="w-4 h-4 text-[#057f78]" />
-          <h3 className="font-bold text-gray-800">Cómo avanza el ROI con cada venta</h3>
+          <h3 className="font-bold text-gray-800">
+            Cómo avanza el ROI con cada venta
+          </h3>
         </div>
         <p className="text-xs text-gray-500 mb-4">
-          Cada venta sube un escalón la línea azul. Cuando alcanza la línea naranja (la inversión),
-          el ROI llega a 0% y desde ahí todo es ganancia.
+          Cada venta sube un escalón la línea azul. Cuando alcanza la línea
+          naranja (la inversión), el ROI llega a 0% y desde ahí todo es
+          ganancia.
         </p>
         <RoiChart
           steps={report.steps}
